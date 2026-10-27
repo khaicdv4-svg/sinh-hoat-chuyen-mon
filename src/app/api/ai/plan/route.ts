@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     for (const p of out.phan_cong ?? []) {
       const m = open.find((x) => x.week_from === p.tuan) ?? open.find((x) => x.week_from != null && x.week_to != null && p.tuan >= x.week_from && p.tuan <= x.week_to);
       if (!m || !p.viec?.length) continue;
-      const { data: sec } = await g.supabase.from("shcm_sections").select("id").eq("meeting_id", m.id).eq("key", "nhiem_vu").maybeSingle();
+      const { data: sec } = await g.supabase.from("shcm_sections").select("id").eq("meeting_id", m.id).eq("key", "chuong_trinh").maybeSingle();
       if (!sec) continue;
       const body = p.viec.map((v) => `- ${v}`).join("\n").slice(0, 8000);
       const { error } = await g.supabase.from("shcm_entries").insert({ section_id: sec.id, author_id: g.profile.id, body, source: "ke_hoach", source_file_id: fileId, status: "proposed" });

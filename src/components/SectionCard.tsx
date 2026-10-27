@@ -1,33 +1,38 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Entry, FileRow, Profile, Section } from "@/lib/types";
-import { acceptProposal, addEntry, deleteEntry, deleteFile, deleteSection, setAssignee, updateEntry } from "@/app/actions";
+import type { Entry, FileRow, Member, Profile, Section } from "@/lib/types";
+import {
+  acceptProposal, addEntry, deleteEntry, deleteFile, deleteSection, renameSection, setAssignee, updateEntry,
+} from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { AI_ACTION_LABELS, BUCKET, EDITORS_LABELS, MAX_FILE_BYTES } from "@/lib/constants";
-import { fmtDateTime, fmtSize, safeFileName } from "@/lib/format";
+import { fmtDateTime, fmtSize, memberName, safeFileName } from "@/lib/format";
 
 type EntryX = Entry & { author?: { full_name: string | null; email?: string } | null };
 type FileX = FileRow & { uploader?: { full_name: string | null; email?: string } | null };
+type Run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => void;
+
+const PROTECTED = ["danh_gia_cm", "danh_gia_cn", "danh_gia_nv", "chuong_trinh", "van_ban", "van_dung", "ket_luan"];
 
 function who(p?: { full_name: string | null; email?: string } | null) {
   return p?.full_name || p?.email || "Thành viên đã rời tổ";
 }
 
-function allowed(mode: string, me: Profile, assignee: string | null) {
+function allowed(mode: string, me: Profile, assignee: string | null, secretary: boolean) {
   const writer = me.role === "giao_vien" || me.role === "to_truong";
   if (!writer) return false;
-  if (me.role === "to_truong") return true;
+  if (me.role === "to_truong" || secretary) return true;
   if (mode === "all") return true;
   if (mode === "assigned") return assignee === me.id;
   return false;
 }
 
 export default function SectionCard({
-  section, entries, files, urls, members, me, locked, meetingId,
+  no, section, entries, files, urls, profiles, members, myMember, me, secretary, locked, meetingId,
 }: {
-  section: Section; entries: EntryX[]; files: FileX[]; urls: Record<string, string>;
-  members: Profile[]; me: Profile; locked: boolean; meetingId: string;
+  no: number | null; section: Section; entries: EntryX[]; files: FileX[]; urls: Record<string, string>;
+  profiles: Profile[]; members: Member[]; myMember: Member | null; me: Profile; secretary: boolean; locked: boolean; meetingId: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -37,20 +42,29 @@ export default function SectionCard({
   const [usedAi, setUsedAi] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [editSpeaker, setEditSpeaker] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [title, setTitle] = useState(section.title);
   const [preview, setPreview] = useState<FileX | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const leader = me.role === "to_truong";
-  const canEntry = !locked && allowed(section.entry_editors, me, section.assignee_id);
-  const canFile = !locked && section.files_mode !== "none" && allowed(section.file_editors, me, section.assignee_id);
+  const recorder = leader || secretary; // được ghi thay người khác
+  const defaultSpeaker = section.entry_editors === "leader" ? "" : myMember?.id ?? "";
+  const [speaker, setSpeaker] = useState(defaultSpeaker);
+
+  const canEntry = !locked && allowed(section.entry_editors, me, section.assignee_id, secretary);
+  const canFile = !locked && section.files_mode !== "none" && allowed(section.file_editors, me, section.assignee_id, secretary);
   const accepted = entries.filter((e) => e.status === "accepted");
   const proposals = entries.filter((e) => e.status === "proposed");
-  const assignee = members.find((m) => m.id === section.assignee_id);
+  const assignee = profiles.find((m) => m.id === section.assignee_id);
   const needsAssignee = section.entry_editors === "assigned" || section.file_editors === "assigned";
+  const memberById = (id: string | null) => members.find((m) => m.id === id) ?? null;
+  const activeMembers = members.filter((m) => m.active);
 
   const refresh = () => router.refresh();
-  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) =>
+  const run: Run = (fn, after) =>
     start(async () => {
       const r = await fn();
       if (!r.ok) setMsg(r.error ?? "Có lỗi.");
@@ -105,14 +119,32 @@ export default function SectionCard({
   const isPdf = (f: FileX) => f.mime_type === "application/pdf" || f.file_name.toLowerCase().endsWith(".pdf");
   const isDocx = (f: FileX) => f.file_name.toLowerCase().endsWith(".docx");
 
+  const speakerSelect = (value: string, onChange: (v: string) => void) => (
+    <select className="input !w-auto !py-1 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Nội dung chung (không ghi tên)</option>
+      {activeMembers.map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
+    </select>
+  );
+
   return (
     <section className="card p-4">
       <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{section.title}</h2>
+          {renaming ? (
+            <div className="flex flex-wrap gap-2">
+              <input className="input !w-auto min-w-72 flex-1" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => renameSection(section.id, title, section.hint), () => setRenaming(false))}>Lưu</button>
+              <button className="btn btn-sm" onClick={() => { setRenaming(false); setTitle(section.title); }}>Hủy</button>
+            </div>
+          ) : (
+            <h3 className="font-semibold">
+              {no ? `${no}. ` : ""}{section.title}
+              {leader && !locked && <button className="ml-2 text-xs font-normal text-gray-400 underline" onClick={() => setRenaming(true)}>đổi tên</button>}
+            </h3>
+          )}
           {section.hint && <p className="text-sm text-gray-500">{section.hint}</p>}
           <p className="mt-1 text-xs text-gray-400">
-            Ghi ý kiến: {EDITORS_LABELS[section.entry_editors]}
+            Ghi nội dung: {EDITORS_LABELS[section.entry_editors]}{section.entry_editors !== "all" ? ", thư ký" : ""}
             {section.files_mode !== "none" ? ` · Tải tệp: ${EDITORS_LABELS[section.file_editors]}` : ""}
             {needsAssignee ? ` · Phụ trách: ${assignee ? who(assignee) : "chưa phân công"}` : ""}
           </p>
@@ -123,17 +155,16 @@ export default function SectionCard({
               <select className="input !w-auto !py-1 text-sm" value={section.assignee_id ?? ""} disabled={pending}
                 onChange={(e) => run(() => setAssignee(section.id, e.target.value || null))}>
                 <option value="">Chưa phân công</option>
-                {members.filter((m) => m.role === "giao_vien" || m.role === "to_truong").map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
+                {profiles.filter((m) => m.role === "giao_vien" || m.role === "to_truong").map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
               </select>
             )}
-            {!["nhiem_vu", "viec_chung", "ket_luan"].includes(section.key) && (
+            {!PROTECTED.includes(section.key) && (
               <button className="btn btn-sm btn-danger" onClick={() => confirm("Xóa đề mục này cùng nội dung bên trong?") && run(() => deleteSection(section.id))}>Xóa mục</button>
             )}
           </div>
         )}
       </div>
 
-      {/* Tệp */}
       {section.files_mode !== "none" && (
         <div className="mt-3">
           <p className="text-sm font-medium text-gray-700">{section.file_label || (section.files_mode === "viewer" ? "Tệp" : "Minh chứng")}</p>
@@ -171,55 +202,72 @@ export default function SectionCard({
         </div>
       )}
 
-      {/* Ý kiến */}
       <div className="mt-3 grid gap-2">
-        {accepted.map((e) => (
-          <div key={e.id} className="rounded-lg bg-[#f8f6ef] p-3 text-sm">
-            {editing === e.id ? (
-              <>
-                <textarea className="input" rows={4} value={editText} onChange={(x) => setEditText(x.target.value)} />
-                <div className="mt-2 flex gap-2">
-                  <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateEntry(e.id, editText), () => setEditing(null))}>Lưu</button>
-                  <button className="btn btn-sm" onClick={() => setEditing(null)}>Hủy</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="whitespace-pre-wrap">{e.body}</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {who(e.author)} · {fmtDateTime(e.created_at)}
-                  {e.source === "ai_assisted" && <span className="badge badge-ai ml-2">có AI hỗ trợ soạn</span>}
-                  {e.source === "ke_hoach" && <span className="badge badge-ai ml-2">theo kế hoạch năm</span>}
-                  {e.source === "van_ban_moi" && <span className="badge badge-ai ml-2">theo văn bản mới</span>}
-                  {e.source === "ai_summary" && <span className="badge badge-ai ml-2">AI tổng hợp, tổ trưởng đã nhận</span>}
-                  {!locked && (leader || e.author_id === me.id) && (
-                    <>
-                      <button className="ml-3 underline" onClick={() => { setEditing(e.id); setEditText(e.body); }}>Sửa</button>
-                      <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa ý kiến này?") && run(() => deleteEntry(e.id))}>Xóa</button>
-                    </>
-                  )}
-                </p>
-              </>
-            )}
-          </div>
-        ))}
+        {accepted.map((e, i) => {
+          const sp = memberById(e.speaker_id);
+          const recordedBy = sp && sp.user_id !== e.author_id ? ` · ${who(e.author)} ghi` : "";
+          const mine = e.author_id === me.id;
+          return (
+            <div key={e.id} className="rounded-lg bg-[#f8f6ef] p-3 text-sm">
+              {editing === e.id ? (
+                <>
+                  {recorder && <div className="mb-2">{speakerSelect(editSpeaker, setEditSpeaker)}</div>}
+                  <textarea className="input" rows={4} value={editText} onChange={(x) => setEditText(x.target.value)} />
+                  <div className="mt-2 flex gap-2">
+                    <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateEntry(e.id, editText, recorder ? editSpeaker : undefined), () => setEditing(null))}>Lưu</button>
+                    <button className="btn btn-sm" onClick={() => setEditing(null)}>Hủy</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap">
+                    {section.layout === "list" && <span>{i + 1}. </span>}
+                    {sp && <b>{memberName(sp)}: </b>}
+                    {e.body}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {sp ? "" : `${who(e.author)} · `}{fmtDateTime(e.created_at)}{recordedBy}
+                    {e.source === "ai_assisted" && <span className="badge badge-ai ml-2">có AI hỗ trợ soạn</span>}
+                    {e.source === "ke_hoach" && <span className="badge badge-ai ml-2">theo kế hoạch năm</span>}
+                    {e.source === "van_ban_moi" && <span className="badge badge-ai ml-2">theo văn bản mới</span>}
+                    {e.source === "ai_summary" && <span className="badge badge-ai ml-2">AI tổng hợp, tổ trưởng đã nhận</span>}
+                    {e.source === "nhap_file" && <span className="badge badge-ai ml-2">nhập từ tệp</span>}
+                    {!locked && (leader || mine) && (
+                      <>
+                        <button className="ml-3 underline" onClick={() => { setEditing(e.id); setEditText(e.body); setEditSpeaker(e.speaker_id ?? ""); }}>Sửa</button>
+                        <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa nội dung này?") && run(() => deleteEntry(e.id))}>Xóa</button>
+                      </>
+                    )}
+                  </p>
+                </>
+              )}
+            </div>
+          );
+        })}
         {accepted.length === 0 && !canEntry && <p className="text-sm text-gray-400">Chưa có nội dung.</p>}
       </div>
 
-      {/* Đề xuất của AI: chỉ tổ trưởng thấy */}
       {leader && proposals.length > 0 && (
         <div className="mt-3 grid gap-2">
-          {proposals.map((p) => <Proposal key={p.id} entry={p} locked={locked} pending={pending} run={run} />)}
+          {proposals.map((p) => <Proposal key={p.id} entry={p} speaker={memberById(p.speaker_id)} locked={locked} pending={pending} run={run} />)}
         </div>
       )}
 
       {canEntry && (
         <div className="mt-3">
-          <textarea className="input" rows={3} placeholder={section.entry_editors === "leader" ? "Nội dung do tổ trưởng ghi…" : "Ghi ý kiến của bạn…"}
+          {recorder && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+              Người phát biểu: {speakerSelect(speaker, setSpeaker)}
+            </div>
+          )}
+          <textarea className="input" rows={3}
+            placeholder={recorder && speaker && speaker !== myMember?.id ? `Ghi lại ý kiến của ${memberName(memberById(speaker))}…` : section.entry_editors === "leader" ? "Nội dung của mục này…" : "Ghi ý kiến của bạn…"}
             value={text} onChange={(e) => { setText(e.target.value); if (!e.target.value.trim()) setUsedAi(false); }} maxLength={8000} />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button className="btn btn-primary btn-sm" disabled={pending || !text.trim()}
-              onClick={() => run(() => addEntry(section.id, text, usedAi ? "ai_assisted" : "manual"), () => { setText(""); setUsedAi(false); })}>Gửi ý kiến</button>
+              onClick={() => run(() => addEntry(section.id, text, usedAi ? "ai_assisted" : "manual", recorder ? speaker || null : myMember?.id ?? null), () => { setText(""); setUsedAi(false); })}>
+              Gửi
+            </button>
             <button className="btn btn-sm" disabled={!text.trim() || !!aiBusy} onClick={aiPolish}
               title={text.trim() ? "" : "Viết ý kiến trước, AI mới hỗ trợ hoàn chỉnh được"}>
               {aiBusy === "opinion" ? "AI đang soạn…" : "AI hỗ trợ ý kiến hoàn chỉnh"}
@@ -230,13 +278,6 @@ export default function SectionCard({
               </button>
             )}
           </div>
-        </div>
-      )}
-      {!canEntry && leader && !locked && section.ai_action !== "none" && AI_ACTION_LABELS[section.ai_action] && (
-        <div className="mt-3">
-          <button className="btn btn-sm" disabled={!!aiBusy} onClick={aiSection}>
-            {aiBusy === "section" ? "AI đang tổng hợp…" : AI_ACTION_LABELS[section.ai_action]}
-          </button>
         </div>
       )}
       {msg && <p className="mt-2 text-sm text-red-700">{msg}</p>}
@@ -258,19 +299,22 @@ export default function SectionCard({
   );
 }
 
-function Proposal({ entry, locked, pending, run }: {
-  entry: EntryX; locked: boolean; pending: boolean;
-  run: (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => void;
+function Proposal({ entry, speaker, locked, pending, run }: {
+  entry: EntryX; speaker: Member | null; locked: boolean; pending: boolean; run: Run;
 }) {
   const [body, setBody] = useState(entry.body);
+  const label =
+    entry.source === "nhap_file" ? "Nhập từ tệp" : entry.source === "ke_hoach" ? "Từ kế hoạch năm" : entry.source === "van_ban_moi" ? "Từ văn bản mới" : "Đề xuất của AI";
   return (
     <div className="rounded-lg border border-dashed border-violet-300 bg-violet-50 p-3 text-sm">
-      <p className="mb-1 text-xs font-medium text-violet-800">Đề xuất của AI — chỉ tổ trưởng thấy, chưa vào biên bản</p>
+      <p className="mb-1 text-xs font-medium text-violet-800">
+        {label}{speaker ? ` · ${memberName(speaker)}` : ""} — chỉ tổ trưởng thấy, chưa vào biên bản
+      </p>
       <textarea className="input" rows={Math.min(12, Math.max(3, body.split("\n").length + 1))} value={body} onChange={(e) => setBody(e.target.value)} disabled={locked} />
       {!locked && (
         <div className="mt-2 flex gap-2">
           <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => acceptProposal(entry.id, body))}>Nhận vào biên bản</button>
-          <button className="btn btn-sm" disabled={pending} onClick={() => run(() => deleteEntry(entry.id))}>Bỏ đề xuất</button>
+          <button className="btn btn-sm" disabled={pending} onClick={() => run(() => deleteEntry(entry.id))}>Bỏ</button>
         </div>
       )}
     </div>

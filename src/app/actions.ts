@@ -13,7 +13,9 @@ async function audit(meetingId: string | null, userId: string, action: string, d
   await supabase.from("shcm_audit").insert({ meeting_id: meetingId, user_id: userId, action, detail: detail ?? null });
 }
 
-export async function addEntry(sectionId: string, body: string, source: "manual" | "ai_assisted" = "manual"): Promise<Result> {
+export async function addEntry(
+  sectionId: string, body: string, source: "manual" | "ai_assisted" = "manual", speakerId: string | null = null,
+): Promise<Result> {
   const me = await requireMember();
   const text = body.trim();
   if (!text) return fail("Chưa có nội dung.");
@@ -21,18 +23,20 @@ export async function addEntry(sectionId: string, body: string, source: "manual"
   const supabase = await createClient();
   const { error } = await supabase
     .from("shcm_entries")
-    .insert({ section_id: sectionId, author_id: me.id, body: text, source, status: "accepted" });
+    .insert({ section_id: sectionId, author_id: me.id, body: text, source, status: "accepted", speaker_id: speakerId || null });
   if (error) return fail(friendly(error.message));
   revalidatePath("/bien-ban/[id]", "page");
   return { ok: true };
 }
 
-export async function updateEntry(id: string, body: string): Promise<Result> {
+export async function updateEntry(id: string, body: string, speakerId?: string | null): Promise<Result> {
   await requireMember();
   const text = body.trim();
   if (!text) return fail("Chưa có nội dung.");
   const supabase = await createClient();
-  const { error } = await supabase.from("shcm_entries").update({ body: text, updated_at: new Date().toISOString() }).eq("id", id);
+  const patch: Record<string, unknown> = { body: text };
+  if (speakerId !== undefined) patch.speaker_id = speakerId || null;
+  const { error } = await supabase.from("shcm_entries").update(patch).eq("id", id);
   if (error) return fail(friendly(error.message));
   revalidatePath("/bien-ban/[id]", "page");
   return { ok: true };
@@ -51,7 +55,7 @@ export async function deleteEntry(id: string): Promise<Result> {
 export async function acceptProposal(id: string, body?: string): Promise<Result> {
   const me = await requireLeader();
   const supabase = await createClient();
-  const patch: Record<string, unknown> = { status: "accepted", updated_at: new Date().toISOString() };
+  const patch: Record<string, unknown> = { status: "accepted" };
   if (body && body.trim()) patch.body = body.trim();
   const { data, error } = await supabase.from("shcm_entries").update(patch).eq("id", id).select("section_id").single();
   if (error) return fail(friendly(error.message));
@@ -83,7 +87,11 @@ export async function deleteFile(id: string, storagePath: string): Promise<Resul
 
 export async function updateMeeting(
   id: string,
-  patch: { meeting_date?: string | null; meeting_time?: string | null; place?: string | null; secretary_id?: string | null; attendance_note?: string | null; subject?: string | null; topic?: string | null; title?: string },
+  patch: {
+    meeting_date?: string | null; meeting_time?: string | null; place?: string | null; attendance_note?: string | null;
+    subject?: string | null; topic?: string | null; title?: string; chair_member_id?: string | null;
+    secretary_member_id?: string | null; ncbh_stage?: string | null;
+  },
 ): Promise<Result> {
   await requireLeader();
   const supabase = await createClient();
@@ -158,6 +166,8 @@ async function addSections(meetingId: string, sections: TemplateSection[]): Prom
       files_mode: s.files_mode,
       file_label: s.file_label ?? null,
       ai_action: s.ai_action ?? "none",
+      part: s.part ?? null,
+      layout: s.layout ?? "block",
     }));
   if (!rows.length) return fail("Biên bản này đã có đủ các đề mục của mẫu.");
   const { error } = await supabase.from("shcm_sections").insert(rows);
@@ -232,4 +242,80 @@ function friendly(msg: string): string {
   if (/row-level security|violates row-level/i.test(msg)) return "Bạn không có quyền làm thao tác này, hoặc biên bản đã khóa.";
   if (/khóa|locked/i.test(msg)) return "Biên bản đã khóa, không sửa được.";
   return msg;
+}
+
+/** Tổ trưởng nhận tất cả đề xuất đang chờ của một biên bản. */
+export async function acceptAllProposals(meetingId: string): Promise<Result> {
+  const me = await requireLeader();
+  const supabase = await createClient();
+  const { data: secs } = await supabase.from("shcm_sections").select("id").eq("meeting_id", meetingId);
+  const ids = (secs ?? []).map((s) => s.id);
+  if (!ids.length) return { ok: true };
+  const { error } = await supabase.from("shcm_entries").update({ status: "accepted" }).in("section_id", ids).eq("status", "proposed");
+  if (error) return fail(friendly(error.message));
+  await audit(meetingId, me.id, "accept_all");
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+export async function renameSection(id: string, title: string, hint: string | null): Promise<Result> {
+  await requireLeader();
+  const t = title.trim();
+  if (!t) return fail("Tên mục không được trống.");
+  const supabase = await createClient();
+  const { error } = await supabase.from("shcm_sections").update({ title: t, hint: hint?.trim() || null }).eq("id", id);
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+/** Điểm danh: tổ trưởng hoặc thư ký buổi họp. rows: thành viên vắng kèm lí do; ai không có trong rows là có mặt. */
+export async function saveAttendance(meetingId: string, rows: { member_id: string; present: boolean; reason: string | null }[]): Promise<Result> {
+  await requireMember();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("shcm_attendance")
+    .upsert(rows.map((r) => ({ meeting_id: meetingId, member_id: r.member_id, present: r.present, reason: r.present ? null : r.reason?.trim() || null })));
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+export async function saveMinutes(meetingId: string, m: { end_time: string | null; vote_agree: number | null; vote_total: number | null; vote_other: string | null }): Promise<Result> {
+  await requireMember();
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("shcm_set_minutes", {
+    p_meeting: meetingId, p_end_time: m.end_time || null, p_vote_agree: m.vote_agree, p_vote_total: m.vote_total, p_vote_other: m.vote_other ?? "",
+  });
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+export async function saveMember(m: {
+  id?: string; honorific: string; full_name: string; title: string | null; email: string | null; sort_order: number; active: boolean; is_chair: boolean;
+}): Promise<Result> {
+  await requireLeader();
+  const name = m.full_name.trim();
+  if (name.length < 2) return fail("Chưa có họ tên.");
+  const supabase = await createClient();
+  const row = {
+    honorific: m.honorific === "Thầy" ? "Thầy" : "Cô", full_name: name, title: m.title?.trim() || null,
+    email: m.email?.trim().toLowerCase() || null, sort_order: m.sort_order, active: m.active, is_chair: m.is_chair,
+  };
+  const { error } = m.id
+    ? await supabase.from("shcm_members").update(row).eq("id", m.id)
+    : await supabase.from("shcm_members").insert(row);
+  if (error) return fail(/duplicate|unique/i.test(error.message) ? "Email này đã gắn với thành viên khác." : friendly(error.message));
+  revalidatePath("/thanh-vien");
+  return { ok: true };
+}
+
+export async function deleteMember(id: string): Promise<Result> {
+  await requireLeader();
+  const supabase = await createClient();
+  const { error } = await supabase.from("shcm_members").delete().eq("id", id);
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/thanh-vien");
+  return { ok: true };
 }

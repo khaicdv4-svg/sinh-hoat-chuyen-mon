@@ -28,6 +28,32 @@ export interface Meeting {
   topic: string | null;
   position: number;
   locked_at: string | null;
+  chair_member_id: string | null;
+  secretary_member_id: string | null;
+  end_time: string | null;
+  vote_agree: number | null;
+  vote_total: number | null;
+  vote_other: string | null;
+  ncbh_stage: string | null;
+}
+
+export interface Member {
+  id: string;
+  honorific: "Thầy" | "Cô";
+  full_name: string;
+  title: string | null;
+  email: string | null;
+  user_id: string | null;
+  is_chair: boolean;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface Attendance {
+  meeting_id: string;
+  member_id: string;
+  present: boolean;
+  reason: string | null;
 }
 
 export interface Section {
@@ -43,6 +69,8 @@ export interface Section {
   file_label: string | null;
   ai_action: string;
   assignee_id: string | null;
+  part: string | null;
+  layout: "block" | "inline" | "list";
 }
 
 export interface Entry {
@@ -50,7 +78,8 @@ export interface Entry {
   section_id: string;
   author_id: string | null;
   body: string;
-  source: "manual" | "ai_assisted" | "ke_hoach" | "van_ban_moi" | "ai_summary";
+  source: "manual" | "ai_assisted" | "ke_hoach" | "van_ban_moi" | "ai_summary" | "nhap_file";
+  speaker_id: string | null;
   source_file_id: string | null;
   status: "proposed" | "accepted";
   created_at: string;
@@ -60,7 +89,7 @@ export interface Entry {
 
 export interface FileRow {
   id: string;
-  kind: "ke_hoach" | "van_ban_moi" | "mau_bien_ban" | "minh_chung";
+  kind: "ke_hoach" | "van_ban_moi" | "mau_bien_ban" | "minh_chung" | "nhap_bien_ban";
   meeting_id: string | null;
   section_id: string | null;
   storage_path: string;
@@ -90,6 +119,8 @@ export interface TemplateSection {
   file_label?: string | null;
   ai_action?: string;
   position?: number;
+  part?: string | null;
+  layout?: "block" | "inline" | "list";
 }
 
 export interface Template {

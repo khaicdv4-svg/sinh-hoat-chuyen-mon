@@ -1,5 +1,5 @@
 export const SCHOOL_NAME = process.env.NEXT_PUBLIC_SCHOOL_NAME || "TRƯỜNG TIỂU HỌC TRẦN VĂN ƠN";
-export const TEAM_NAME = process.env.NEXT_PUBLIC_TEAM_NAME || "TỔ CHUYÊN MÔN KHỐI 4";
+export const TEAM_NAME = process.env.NEXT_PUBLIC_TEAM_NAME || "TỔ CHUYÊN MÔN 4";
 export const SCHOOL_YEAR = process.env.NEXT_PUBLIC_SCHOOL_YEAR || "2026-2027";
 
 export const BUCKET = "shcm-files";

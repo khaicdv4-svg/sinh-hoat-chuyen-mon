@@ -79,3 +79,29 @@ export function safeFileName(name: string): string {
   const slug = slugify(base) || "tep";
   return ext ? `${slug}.${ext}` : slug;
 }
+
+/** Thay {tuan}, {truoc} trong tên phần bằng tuần thật của buổi họp. */
+export function partLabel(part: string | null | undefined, weekFrom: number | null, weekTo: number | null): string {
+  if (!part) return "";
+  const tuan = weekFrom != null && weekTo != null ? `TUẦN ${weekFrom} + ${weekTo}` : "";
+  const truoc =
+    weekFrom != null && weekFrom > 2 ? `TUẦN ${weekFrom - 2} + ${weekFrom - 1}` : weekFrom != null ? "ĐẦU NĂM HỌC" : "";
+  return part.replace("{tuan}", tuan).replace("{truoc}", truoc).replace(/\s+$/, "");
+}
+
+export const memberName = (m: { honorific: string; full_name: string } | null | undefined) =>
+  m ? `${m.honorific} ${m.full_name}` : "";
+
+/** Nhóm các đề mục theo phần, giữ thứ tự; trả về số thứ tự trong phần. */
+export function groupByPart<T extends { part: string | null; layout?: string }>(sections: T[]) {
+  const groups: { part: string | null; items: { s: T; no: number }[] }[] = [];
+  for (const s of sections) {
+    let g = groups[groups.length - 1];
+    if (!g || g.part !== s.part) {
+      g = { part: s.part, items: [] };
+      groups.push(g);
+    }
+    g.items.push({ s, no: g.items.length + 1 });
+  }
+  return groups;
+}

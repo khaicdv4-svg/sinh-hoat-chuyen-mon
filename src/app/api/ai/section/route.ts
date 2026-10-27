@@ -37,15 +37,21 @@ export async function POST(req: Request) {
       secIds.splice(0, secIds.length, ...sectionList.map((s) => s.id));
     }
     const { data: ents } = secIds.length
-      ? await g.supabase.from("shcm_entries").select("section_id, body, created_at, author:author_id(full_name, email)").in("section_id", secIds).eq("status", "accepted").order("created_at")
+      ? await g.supabase.from("shcm_entries").select("section_id, body, created_at, speaker_id, author:author_id(full_name, email)").in("section_id", secIds).eq("status", "accepted").order("created_at")
       : { data: [] };
+    const { data: roster } = await g.supabase.from("shcm_members").select("id, honorific, full_name");
+    const speakerName = (id: string | null) => {
+      const m = (roster ?? []).find((x) => x.id === id);
+      return m ? `${m.honorific} ${m.full_name}` : "";
+    };
     for (const s of sectionList) {
       lines.push(`\n## ${s.title}`);
       const mine = (ents ?? []).filter((e) => e.section_id === s.id);
       if (!mine.length) lines.push("(chưa có ý kiến)");
       for (const e of mine) {
         const a = e.author as unknown as { full_name: string | null; email: string } | null;
-        lines.push(`- ${a?.full_name || a?.email || "Không rõ"}: ${e.body}`);
+        const sp = speakerName(e.speaker_id);
+        lines.push(sp ? `- ${sp}: ${e.body}` : `- (nội dung chung, ${a?.full_name || a?.email || "không rõ"} ghi): ${e.body}`);
       }
     }
     if (sec.ai_action !== "du_thao_ket_luan" && !(ents ?? []).length) throw new AiError("Đề mục chưa có ý kiến nào để AI tổng hợp.", 400);

@@ -6,7 +6,7 @@ export const maxDuration = 120;
 /**
  * Hai bước:
  *  mode "analyze": AI đọc văn bản mới, tóm tắt, nêu hiệu lực và gợi ý phạm vi áp dụng.
- *  mode "apply": ghi các điểm đã chốt vào mục "Việc chung" của các biên bản được chọn.
+ *  mode "apply": ghi các điểm đã chốt vào mục "Triển khai văn bản mới" của các biên bản được chọn.
  * Biên bản đã khóa hoặc đã qua ngày họp không bao giờ bị thay đổi.
  */
 export async function POST(req: Request) {
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     const text = `Theo văn bản "${file.file_name}":\n` + points.map((p) => `- ${p}`).join("\n");
     let done = 0;
     for (const m of targets) {
-      const { data: sec } = await g.supabase.from("shcm_sections").select("id").eq("meeting_id", m.id).eq("key", "viec_chung").maybeSingle();
+      const { data: sec } = await g.supabase.from("shcm_sections").select("id").eq("meeting_id", m.id).eq("key", "van_ban").maybeSingle();
       if (!sec) continue;
       await g.supabase.from("shcm_entries").delete().eq("section_id", sec.id).eq("source_file_id", file.id).eq("status", "proposed");
       const { error } = await g.supabase.from("shcm_entries").insert({ section_id: sec.id, author_id: g.profile.id, body: text.slice(0, 8000), source: "van_ban_moi", source_file_id: file.id, status: "proposed" });

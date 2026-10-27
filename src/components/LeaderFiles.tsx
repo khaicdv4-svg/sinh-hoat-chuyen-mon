@@ -53,7 +53,7 @@ export default function LeaderFiles({
     setBusy(f.id); setMsg(""); setOk("");
     try {
       const j = await post("/api/ai/plan", { fileId: f.id });
-      setOk(`AI đã chia ${j.total} việc vào ${j.meetings} biên bản. Các việc nằm ở mục "Nhiệm vụ của thời điểm", chỉ tổ trưởng thấy cho đến khi bạn nhận vào biên bản.`);
+      setOk(`AI đã chia ${j.total} việc vào ${j.meetings} biên bản. Các việc nằm ở mục II.1 "Thực hiện chương trình và hỗ trợ học sinh", chỉ tổ trưởng thấy cho đến khi bạn nhận vào biên bản.`);
       router.refresh();
     } catch (e) { setMsg((e as Error).message); }
     setBusy("");
@@ -79,7 +79,7 @@ export default function LeaderFiles({
         mode: "apply", fileId: dlg.file.id, scope, meetingId: scope === "meeting" ? meetingId : undefined,
         points: points.split("\n").map((s) => s.replace(/^[-•\s]+/, "").trim()).filter(Boolean),
       });
-      setOk(`Đã đưa vào mục "Việc chung" của ${j.meetings} biên bản (dạng đề xuất, bạn nhận từng biên bản).`);
+      setOk(`Đã đưa vào mục III.1 "Triển khai văn bản mới" của ${j.meetings} biên bản (dạng đề xuất, bạn nhận từng biên bản).`);
       setDlg(null); router.refresh();
     } catch (e) { setMsg((e as Error).message); }
     setBusy("");

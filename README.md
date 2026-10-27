@@ -13,3 +13,8 @@ File tạo bảng: `supabase/migrations/001_shcm_init.sql` (đã chạy, không 
 3. Supabase → Authentication → Providers → Google: bật, nhập Client ID/Secret từ Google Cloud.
    Supabase → Authentication → URL Configuration: Site URL = địa chỉ Vercel; thêm `https://<địa chỉ>/auth/callback` vào Redirect URLs.
 4. Đăng nhập lần đầu bằng khaicdv4@gmail.com: tự thành tổ trưởng + quản trị. Các tài khoản khác chờ duyệt ở trang Thành viên.
+
+## Cập nhật theo mẫu biên bản của trường (migration 002, đã chạy)
+- Danh sách thành viên tổ (trang Thành viên), điểm danh, chủ trì, thư ký; thư ký ghi ý kiến thay thành viên.
+- Biên bản theo khung A. Thành phần – B. Nội dung (I–IV) – C. Biểu quyết và kết luận; xuất Word đúng bố cục mẫu.
+- Nhập nội dung từ biên bản Word/PDF đã soạn: AI chia vào các mục, gắn đúng người nói, ở dạng đề xuất chờ tổ trưởng nhận.
