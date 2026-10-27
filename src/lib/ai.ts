@@ -9,6 +9,20 @@ import type { Profile } from "@/lib/types";
 
 export const MODEL = process.env.AI_MODEL || "claude-sonnet-5-5";
 
+/**
+ * Nhà cung cấp AI:
+ *  - "anthropic" (mặc định): API của Anthropic, hoặc cổng trung gian tương thích Anthropic (đặt AI_BASE_URL).
+ *  - "openai": cổng trung gian kiểu OpenAI (/v1/chat/completions), ví dụ các trang bán lại API.
+ * Khóa: AI_API_KEY (hoặc ANTHROPIC_API_KEY cho tương thích cũ).
+ */
+const PROVIDER = (process.env.AI_PROVIDER || "anthropic").toLowerCase();
+const API_KEY = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY || "";
+const BASE_URL = (process.env.AI_BASE_URL || "").replace(/\/+$/, "");
+
+function anthropicClient() {
+  return new Anthropic({ apiKey: API_KEY, ...(BASE_URL ? { baseURL: BASE_URL } : {}) });
+}
+
 export class AiError extends Error {
   status: number;
   constructor(message: string, status = 400) {
@@ -28,7 +42,8 @@ export async function aiGuard(opts: { leaderOnly: boolean }): Promise<Guard> {
   if (!profile || profile.status !== "approved") throw new AiError("Bạn chưa đăng nhập hoặc chưa được duyệt.", 401);
   if (profile.role !== "giao_vien" && profile.role !== "to_truong") throw new AiError("Tài khoản của bạn không dùng được AI.", 403);
   if (opts.leaderOnly && profile.role !== "to_truong") throw new AiError("Chức năng này chỉ dành cho tổ trưởng.", 403);
-  if (!process.env.ANTHROPIC_API_KEY) throw new AiError("Chưa cấu hình khóa AI trên máy chủ. Báo quản trị thêm ANTHROPIC_API_KEY.", 503);
+  if (!API_KEY) throw new AiError("Chưa cấu hình khóa AI trên máy chủ. Báo quản trị thêm AI_API_KEY.", 503);
+  if (PROVIDER === "openai" && !BASE_URL) throw new AiError("Thiếu AI_BASE_URL cho cổng AI kiểu OpenAI.", 503);
 
   const supabase = await createClient();
   const limit =
@@ -62,7 +77,14 @@ Chỉ dùng thông tin có trong dữ liệu được đưa. Không bịa số l
 Sinh hoạt chuyên môn theo hướng nghiên cứu bài học: bàn về việc học của học sinh, không chấm điểm hay xếp loại giờ dạy của đồng nghiệp.`;
 
 export async function askText(g: Guard, feature: string, system: string, content: string | Block[], maxTokens = 1500): Promise<string> {
-  const client = new Anthropic();
+  if (PROVIDER === "openai") {
+    try {
+      const j = await openaiChat({ system, content, maxTokens });
+      await logUsage(g, feature, { input_tokens: j.usage?.prompt_tokens, output_tokens: j.usage?.completion_tokens });
+      return String(j.choices?.[0]?.message?.content ?? "").trim();
+    } catch (e) { throw wrap(e); }
+  }
+  const client = anthropicClient();
   try {
     const res = await client.messages.create({
       model: MODEL,
@@ -82,7 +104,21 @@ export async function askTool<T>(
   tool: { name: string; description: string; input_schema: Anthropic.Messages.Tool.InputSchema },
   maxTokens = 4000,
 ): Promise<T> {
-  const client = new Anthropic();
+  if (PROVIDER === "openai") {
+    try {
+      const j = await openaiChat({
+        system, content, maxTokens,
+        tools: [{ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }],
+        tool_choice: { type: "function", function: { name: tool.name } },
+      });
+      await logUsage(g, feature, { input_tokens: j.usage?.prompt_tokens, output_tokens: j.usage?.completion_tokens });
+      const msg = j.choices?.[0]?.message;
+      const raw = msg?.tool_calls?.[0]?.function?.arguments ?? msg?.content ?? "";
+      const text = String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "");
+      try { return JSON.parse(text) as T; } catch { throw new AiError("AI chưa trả về kết quả đúng dạng. Thử lại giúp.", 502); }
+    } catch (e) { throw wrap(e); }
+  }
+  const client = anthropicClient();
   try {
     const res = await client.messages.create({
       model: MODEL,
@@ -132,4 +168,49 @@ export async function fileToBlocks(g: Guard, storagePath: string, fileName: stri
 export function errorResponse(e: unknown): Response {
   const err = e instanceof AiError ? e : new AiError("Có lỗi: " + (e instanceof Error ? e.message : String(e)), 500);
   return Response.json({ error: err.message }, { status: err.status });
+}
+
+// ------------------------------------------------------------------ Cổng kiểu OpenAI
+type OAIPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
+async function toOpenAIParts(content: string | Block[]): Promise<OAIPart[]> {
+  if (typeof content === "string") return [{ type: "text", text: content }];
+  const parts: OAIPart[] = [];
+  for (const b of content) {
+    if (b.type === "text") parts.push({ type: "text", text: b.text });
+    else if (b.type === "image" && b.source.type === "base64") {
+      parts.push({ type: "image_url", image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } });
+    } else if (b.type === "document" && b.source.type === "base64") {
+      // PDF: lấy chữ ra gửi kèm, vì cổng kiểu OpenAI thường không nhận tệp PDF
+      const { extractText, getDocumentProxy } = await import("unpdf");
+      const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(b.source.data, "base64")));
+      const { text } = await extractText(pdf, { mergePages: true });
+      const t = (Array.isArray(text) ? text.join("\n") : text).trim();
+      if (!t) throw new AiError("Tệp PDF này là ảnh chụp, chưa đọc được chữ. Thầy lưu bản Word (.docx) rồi tải lại giúp.", 422);
+      parts.push({ type: "text", text: `Nội dung tệp PDF:\n\n${t.slice(0, 150000)}` });
+    }
+  }
+  return parts;
+}
+
+async function openaiChat(o: {
+  system: string; content: string | Block[]; maxTokens: number; tools?: unknown[]; tool_choice?: unknown;
+}) {
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: o.maxTokens,
+      messages: [{ role: "system", content: o.system }, { role: "user", content: await toOpenAIParts(o.content) }],
+      ...(o.tools ? { tools: o.tools, tool_choice: o.tool_choice } : {}),
+    }),
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`${res.status} ${txt.slice(0, 200)}`);
+  try {
+    return JSON.parse(txt);
+  } catch {
+    throw new Error("Cổng AI trả về dữ liệu lạ: " + txt.slice(0, 120));
+  }
 }
