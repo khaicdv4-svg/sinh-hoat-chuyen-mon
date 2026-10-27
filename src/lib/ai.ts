@@ -2,25 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import mammoth from "mammoth";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProfile } from "@/lib/auth";
+import { loadAiConfig, type AiConfig } from "@/lib/ai-config";
 import { createClient } from "@/lib/supabase/server";
 import { BUCKET, DEFAULT_AI_DAILY_LIMIT_LEADER, DEFAULT_AI_DAILY_LIMIT_TEACHER } from "@/lib/constants";
 import { todayVN } from "@/lib/format";
 import type { Profile } from "@/lib/types";
 
-export const MODEL = process.env.AI_MODEL || "claude-sonnet-5-5";
-
-/**
- * Nhà cung cấp AI:
- *  - "anthropic" (mặc định): API của Anthropic, hoặc cổng trung gian tương thích Anthropic (đặt AI_BASE_URL).
- *  - "openai": cổng trung gian kiểu OpenAI (/v1/chat/completions), ví dụ các trang bán lại API.
- * Khóa: AI_API_KEY (hoặc ANTHROPIC_API_KEY cho tương thích cũ).
- */
-const PROVIDER = (process.env.AI_PROVIDER || "anthropic").toLowerCase();
-const API_KEY = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY || "";
-const BASE_URL = (process.env.AI_BASE_URL || "").replace(/\/+$/, "");
-
-function anthropicClient() {
-  return new Anthropic({ apiKey: API_KEY, ...(BASE_URL ? { baseURL: BASE_URL } : {}) });
+function anthropicClient(cfg: AiConfig) {
+  return new Anthropic({ apiKey: cfg.apiKey, ...(cfg.baseUrl ? { baseURL: cfg.baseUrl } : {}) });
 }
 
 export class AiError extends Error {
@@ -34,6 +23,7 @@ export class AiError extends Error {
 export interface Guard {
   supabase: SupabaseClient;
   profile: Profile;
+  cfg: AiConfig;
 }
 
 /** Kiểm tra đăng nhập, quyền và hạn mức AI trong ngày. */
@@ -42,8 +32,9 @@ export async function aiGuard(opts: { leaderOnly: boolean }): Promise<Guard> {
   if (!profile || profile.status !== "approved") throw new AiError("Bạn chưa đăng nhập hoặc chưa được duyệt.", 401);
   if (profile.role !== "giao_vien" && profile.role !== "to_truong") throw new AiError("Tài khoản của bạn không dùng được AI.", 403);
   if (opts.leaderOnly && profile.role !== "to_truong") throw new AiError("Chức năng này chỉ dành cho tổ trưởng.", 403);
-  if (!API_KEY) throw new AiError("Chưa cấu hình khóa AI trên máy chủ. Báo quản trị thêm AI_API_KEY.", 503);
-  if (PROVIDER === "openai" && !BASE_URL) throw new AiError("Thiếu AI_BASE_URL cho cổng AI kiểu OpenAI.", 503);
+  const cfg = await loadAiConfig();
+  if (!cfg.apiKey) throw new AiError("Chưa có khóa AI. Tổ trưởng vào mục Cài đặt AI để nhập khóa.", 503);
+  if (cfg.provider === "openai" && !cfg.baseUrl) throw new AiError("Thiếu địa chỉ cổng AI. Tổ trưởng vào mục Cài đặt AI để nhập.", 503);
 
   const supabase = await createClient();
   const limit =
@@ -57,7 +48,7 @@ export async function aiGuard(opts: { leaderOnly: boolean }): Promise<Guard> {
     .eq("user_id", profile.id)
     .gte("created_at", since);
   if ((count ?? 0) >= limit) throw new AiError(`Hôm nay bạn đã dùng hết ${limit} lượt AI. Mai dùng tiếp nhé.`, 429);
-  return { supabase, profile };
+  return { supabase, profile, cfg };
 }
 
 async function logUsage(g: Guard, feature: string, usage?: { input_tokens?: number; output_tokens?: number }) {
@@ -77,17 +68,17 @@ Chỉ dùng thông tin có trong dữ liệu được đưa. Không bịa số l
 Sinh hoạt chuyên môn theo hướng nghiên cứu bài học: bàn về việc học của học sinh, không chấm điểm hay xếp loại giờ dạy của đồng nghiệp.`;
 
 export async function askText(g: Guard, feature: string, system: string, content: string | Block[], maxTokens = 1500): Promise<string> {
-  if (PROVIDER === "openai") {
+  if (g.cfg.provider === "openai") {
     try {
-      const j = await openaiChat({ system, content, maxTokens });
+      const j = await openaiChat({ cfg: g.cfg, system, content, maxTokens });
       await logUsage(g, feature, { input_tokens: j.usage?.prompt_tokens, output_tokens: j.usage?.completion_tokens });
       return String(j.choices?.[0]?.message?.content ?? "").trim();
     } catch (e) { throw wrap(e); }
   }
-  const client = anthropicClient();
+  const client = anthropicClient(g.cfg);
   try {
     const res = await client.messages.create({
-      model: MODEL,
+      model: g.cfg.model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content }],
@@ -104,10 +95,10 @@ export async function askTool<T>(
   tool: { name: string; description: string; input_schema: Anthropic.Messages.Tool.InputSchema },
   maxTokens = 4000,
 ): Promise<T> {
-  if (PROVIDER === "openai") {
+  if (g.cfg.provider === "openai") {
     try {
       const j = await openaiChat({
-        system, content, maxTokens,
+        cfg: g.cfg, system, content, maxTokens,
         tools: [{ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }],
         tool_choice: { type: "function", function: { name: tool.name } },
       });
@@ -118,10 +109,10 @@ export async function askTool<T>(
       try { return JSON.parse(text) as T; } catch { throw new AiError("AI chưa trả về kết quả đúng dạng. Thử lại giúp.", 502); }
     } catch (e) { throw wrap(e); }
   }
-  const client = anthropicClient();
+  const client = anthropicClient(g.cfg);
   try {
     const res = await client.messages.create({
-      model: MODEL,
+      model: g.cfg.model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content }],
@@ -194,13 +185,13 @@ async function toOpenAIParts(content: string | Block[]): Promise<OAIPart[]> {
 }
 
 async function openaiChat(o: {
-  system: string; content: string | Block[]; maxTokens: number; tools?: unknown[]; tool_choice?: unknown;
+  cfg: AiConfig; system: string; content: string | Block[]; maxTokens: number; tools?: unknown[]; tool_choice?: unknown;
 }) {
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+  const res = await fetch(`${o.cfg.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${o.cfg.apiKey}` },
     body: JSON.stringify({
-      model: MODEL,
+      model: o.cfg.model,
       max_tokens: o.maxTokens,
       messages: [{ role: "system", content: o.system }, { role: "user", content: await toOpenAIParts(o.content) }],
       ...(o.tools ? { tools: o.tools, tool_choice: o.tool_choice } : {}),
@@ -213,4 +204,18 @@ async function openaiChat(o: {
   } catch {
     throw new Error("Cổng AI trả về dữ liệu lạ: " + txt.slice(0, 120));
   }
+}
+
+/** Gửi một câu ngắn để kiểm tra khóa, địa chỉ và tên model. */
+export async function testAiConnection(cfg: AiConfig): Promise<string> {
+  if (cfg.provider === "openai") {
+    const j = await openaiChat({ cfg, system: "Trả lời ngắn gọn.", content: "Trả lời đúng một chữ: có", maxTokens: 20 });
+    return String(j.choices?.[0]?.message?.content ?? "").trim();
+  }
+  const res = await anthropicClient(cfg).messages.create({
+    model: cfg.model,
+    max_tokens: 20,
+    messages: [{ role: "user", content: "Trả lời đúng một chữ: có" }],
+  });
+  return res.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
 }

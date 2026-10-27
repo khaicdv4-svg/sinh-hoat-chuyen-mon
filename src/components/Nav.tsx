@@ -17,6 +17,7 @@ export default function Nav({ profile }: { profile: Profile | null }) {
             <Link href="/">Biên bản</Link>
             {leader && <Link href="/ke-hoach">Kế hoạch năm</Link>}
             {leader && <Link href="/van-ban-moi">Văn bản mới</Link>}
+            {leader && <Link href="/cai-dat-ai">Cài đặt AI</Link>}
             {leader && <Link href="/bien-ban/moi">Thêm biên bản</Link>}
             {profile?.is_admin && <Link href="/thanh-vien">Thành viên</Link>}
           </nav>
