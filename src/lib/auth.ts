@@ -5,10 +5,8 @@ import type { Profile } from "@/lib/types";
 
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!claimsData?.claims) return null;
   const { data, error } = await supabase.rpc("shcm_ensure_profile");
   if (error || !data) return null;
   return data as Profile;
