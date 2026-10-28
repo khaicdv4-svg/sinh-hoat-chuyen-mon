@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import mammoth from "mammoth";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProfile } from "@/lib/auth";
-import { loadAiConfig, type AiConfig } from "@/lib/ai-config";
+import { loadAiSettings, pickConfig, type AiConfig, type AiSettings } from "@/lib/ai-config";
 import { createClient } from "@/lib/supabase/server";
 import { BUCKET, DEFAULT_AI_DAILY_LIMIT_LEADER, DEFAULT_AI_DAILY_LIMIT_TEACHER } from "@/lib/constants";
 import { todayVN } from "@/lib/format";
@@ -23,7 +23,7 @@ export class AiError extends Error {
 export interface Guard {
   supabase: SupabaseClient;
   profile: Profile;
-  cfg: AiConfig;
+  ai: AiSettings;
 }
 
 /** Kiểm tra đăng nhập, quyền và hạn mức AI trong ngày. */
@@ -32,9 +32,8 @@ export async function aiGuard(opts: { leaderOnly: boolean }): Promise<Guard> {
   if (!profile || profile.status !== "approved") throw new AiError("Bạn chưa đăng nhập hoặc chưa được duyệt.", 401);
   if (profile.role !== "giao_vien" && profile.role !== "to_truong") throw new AiError("Tài khoản của bạn không dùng được AI.", 403);
   if (opts.leaderOnly && profile.role !== "to_truong") throw new AiError("Chức năng này chỉ dành cho tổ trưởng.", 403);
-  const cfg = await loadAiConfig();
-  if (!cfg.apiKey) throw new AiError("Chưa có khóa AI. Tổ trưởng vào mục Cài đặt AI để nhập khóa.", 503);
-  if (cfg.provider === "openai" && !cfg.baseUrl) throw new AiError("Thiếu địa chỉ cổng AI. Tổ trưởng vào mục Cài đặt AI để nhập.", 503);
+  const ai = await loadAiSettings();
+  if (!ai.apiKey) throw new AiError("Chưa có khóa AI. Tổ trưởng vào mục Cài đặt AI để nhập khóa.", 503);
 
   const supabase = await createClient();
   const limit =
@@ -48,7 +47,7 @@ export async function aiGuard(opts: { leaderOnly: boolean }): Promise<Guard> {
     .eq("user_id", profile.id)
     .gte("created_at", since);
   if ((count ?? 0) >= limit) throw new AiError(`Hôm nay bạn đã dùng hết ${limit} lượt AI. Mai dùng tiếp nhé.`, 429);
-  return { supabase, profile, cfg };
+  return { supabase, profile, ai };
 }
 
 async function logUsage(g: Guard, feature: string, usage?: { input_tokens?: number; output_tokens?: number }) {
@@ -68,17 +67,19 @@ Chỉ dùng thông tin có trong dữ liệu được đưa. Không bịa số l
 Sinh hoạt chuyên môn theo hướng nghiên cứu bài học: bàn về việc học của học sinh, không chấm điểm hay xếp loại giờ dạy của đồng nghiệp.`;
 
 export async function askText(g: Guard, feature: string, system: string, content: string | Block[], maxTokens = 1500): Promise<string> {
-  if (g.cfg.provider === "openai") {
+  const cfg = pickConfig(g.ai, feature);
+  if (cfg.provider === "openai") {
     try {
-      const j = await openaiChat({ cfg: g.cfg, system, content, maxTokens });
+      if (!cfg.baseUrl) throw new AiError("Model này thiếu địa chỉ cổng. Tổ trưởng vào Cài đặt AI để bổ sung.", 503);
+      const j = await openaiChat({ cfg, system, content, maxTokens });
       await logUsage(g, feature, { input_tokens: j.usage?.prompt_tokens, output_tokens: j.usage?.completion_tokens });
       return String(j.choices?.[0]?.message?.content ?? "").trim();
     } catch (e) { throw wrap(e); }
   }
-  const client = anthropicClient(g.cfg);
+  const client = anthropicClient(cfg);
   try {
     const res = await client.messages.create({
-      model: g.cfg.model,
+      model: cfg.model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content }],
@@ -95,10 +96,12 @@ export async function askTool<T>(
   tool: { name: string; description: string; input_schema: Anthropic.Messages.Tool.InputSchema },
   maxTokens = 4000,
 ): Promise<T> {
-  if (g.cfg.provider === "openai") {
+  const cfg = pickConfig(g.ai, feature);
+  if (cfg.provider === "openai") {
     try {
+      if (!cfg.baseUrl) throw new AiError("Model này thiếu địa chỉ cổng. Tổ trưởng vào Cài đặt AI để bổ sung.", 503);
       const j = await openaiChat({
-        cfg: g.cfg, system, content, maxTokens,
+        cfg, system, content, maxTokens,
         tools: [{ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }],
         tool_choice: { type: "function", function: { name: tool.name } },
       });
@@ -109,10 +112,10 @@ export async function askTool<T>(
       try { return JSON.parse(text) as T; } catch { throw new AiError("AI chưa trả về kết quả đúng dạng. Thử lại giúp.", 502); }
     } catch (e) { throw wrap(e); }
   }
-  const client = anthropicClient(g.cfg);
+  const client = anthropicClient(cfg);
   try {
     const res = await client.messages.create({
-      model: g.cfg.model,
+      model: cfg.model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content }],
