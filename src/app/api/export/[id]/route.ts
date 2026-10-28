@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!d) return new Response("Không tìm thấy biên bản", { status: 404 });
   const base = slugify(d.meeting.title) || "bien_ban";
 
-  if (format === "html" || format === "pdf") {
+  if (format === "html" || format === "pdf" || format === "preview") {
     const html = toHtml(d, { autoPrint: format === "pdf" });
     const headers: Record<string, string> = { "Content-Type": "text/html; charset=utf-8" };
     if (format === "html") headers["Content-Disposition"] = `attachment; filename="${base}.html"`;
