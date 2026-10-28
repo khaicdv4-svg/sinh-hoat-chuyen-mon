@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireLeader, requireMember } from "@/lib/auth";
+import { getProfile, requireAdmin, requireLeader, requireMember } from "@/lib/auth";
 import type { TemplateSection } from "@/lib/types";
 
 type Result = { ok: true; id?: string } | { ok: false; error: string };
@@ -353,5 +353,16 @@ export async function deleteMember(id: string): Promise<Result> {
   const { error } = await supabase.from("shcm_members").delete().eq("id", id);
   if (error) return fail(friendly(error.message));
   revalidatePath("/thanh-vien");
+  return { ok: true };
+}
+
+/** Thành viên tự khai hồ sơ: danh xưng, họ tên, nhiệm vụ. */
+export async function saveMyProfile(honorific: string, fullName: string, title: string): Promise<Result> {
+  const profile = await getProfile();
+  if (!profile) return fail("Chưa đăng nhập.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("shcm_save_my_profile", { p_honorific: honorific, p_full_name: fullName, p_title: title });
+  if (error) return fail(error.message.replace(/^.*exception:\s*/i, ""));
+  revalidatePath("/", "layout");
   return { ok: true };
 }

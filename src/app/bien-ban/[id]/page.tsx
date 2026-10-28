@@ -7,6 +7,7 @@ import { groupByPart, partLabel } from "@/lib/format";
 import type { Attendance, CalendarWeek, Entry, FileRow, Meeting, Member, Profile, Section, Template } from "@/lib/types";
 import MeetingHeader from "@/components/MeetingHeader";
 import SectionCard from "@/components/SectionCard";
+import ExportBar from "@/components/ExportBar";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         ))}
         {!sections.length && <p className="text-sm text-gray-500">Biên bản chưa có đề mục nào.</p>}
       </div>
+      {leader && <ExportBar meetingId={id} locked={locked} />}
     </div>
   );
 }

@@ -65,6 +65,9 @@ export default function SectionCard({
   const [otext, setOtext] = useState("");
   const [oSpeaker, setOSpeaker] = useState(myMember?.id ?? "");
   const [oAi, setOAi] = useState(false);
+  const [aiAsk, setAiAsk] = useState("");
+  const [writeOpen, setWriteOpen] = useState(false);
+  const importIn = useRef<HTMLInputElement>(null);
   const proposals = entries.filter((e) => e.status === "proposed" && e.kind !== "y_kien");
   const assignee = profiles.find((m) => m.id === section.assignee_id);
   const needsAssignee = section.entry_editors === "assigned" || section.file_editors === "assigned";
@@ -101,6 +104,39 @@ export default function SectionCard({
       if (!res.ok) throw new Error(j.error || "AI chưa trả lời được.");
       refresh();
     } catch (e) { setMsg((e as Error).message); }
+    setAiBusy("");
+  }
+
+  async function aiWrite() {
+    setAiBusy("write"); setMsg("");
+    try {
+      const res = await fetch("/api/ai/write", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, mode: "write", instruction: aiAsk }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "AI chưa trả lời được.");
+      setWriteOpen(false); setAiAsk(""); refresh();
+    } catch (e) { setMsg((e as Error).message); }
+    setAiBusy("");
+  }
+
+  async function importHere(file?: File) {
+    if (!file) return;
+    setAiBusy("import"); setMsg("");
+    try {
+      if (file.size > MAX_FILE_BYTES) throw new Error("Tệp lớn hơn 50 MB.");
+      const supabase = createClient();
+      const path = `leader/nhap_bien_ban/${crypto.randomUUID().slice(0, 8)}-${safeFileName(file.name)}`;
+      const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined });
+      if (up.error) throw new Error("Không tải được tệp: " + up.error.message);
+      const { data, error } = await supabase.from("shcm_files")
+        .insert({ kind: "mau_bien_ban", meeting_id: meetingId, storage_path: path, file_name: file.name, mime_type: file.type || null, size_bytes: file.size, uploaded_by: me.id })
+        .select("id").single();
+      if (error || !data) throw new Error("Không ghi nhận được tệp: " + (error?.message ?? ""));
+      const res = await fetch("/api/ai/write", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, mode: "import", fileId: data.id }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "AI chưa đọc được tệp.");
+      refresh();
+    } catch (e) { setMsg((e as Error).message); }
+    if (importIn.current) importIn.current.value = "";
     setAiBusy("");
   }
 
@@ -265,6 +301,30 @@ export default function SectionCard({
       {leader && proposals.length > 0 && (
         <div className="mt-3 grid gap-2">
           {proposals.map((p) => <Proposal key={p.id} entry={p} speaker={memberById(p.speaker_id)} locked={locked} pending={pending} run={run} />)}
+        </div>
+      )}
+
+      {leader && !locked && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button className="btn btn-sm" disabled={!!aiBusy} onClick={() => setWriteOpen(!writeOpen)}>
+            {aiBusy === "write" ? "AI đang viết…" : "AI viết nội dung mục này"}
+          </button>
+          <input ref={importIn} type="file" accept=".docx,.pdf" className="hidden" onChange={(e) => importHere(e.target.files?.[0])} />
+          <button className="btn btn-sm" disabled={!!aiBusy} onClick={() => importIn.current?.click()}>
+            {aiBusy === "import" ? "AI đang đọc tệp…" : "Nhập từ tệp Word/PDF"}
+          </button>
+          <span className="text-xs text-gray-500">Kết quả hiện ở khung tím, thầy xem rồi mới nhận vào nội dung.</span>
+        </div>
+      )}
+      {leader && !locked && writeOpen && (
+        <div className="well mt-2 grid gap-2 p-3">
+          <textarea className="input" rows={3} value={aiAsk} onChange={(e) => setAiAsk(e.target.value)}
+            placeholder="Yêu cầu thêm cho AI (không bắt buộc). Ví dụ: Nêu 3 việc trọng tâm tuần này, lấy từ kế hoạch tháng 11." />
+          <div className="flex gap-2">
+            <button className="btn btn-primary btn-sm" disabled={!!aiBusy} onClick={aiWrite}>{aiBusy === "write" ? "AI đang viết…" : "Viết"}</button>
+            <button className="btn btn-sm" onClick={() => setWriteOpen(false)}>Hủy</button>
+          </div>
+          <p className="text-xs text-gray-500">AI dựa vào các nguồn đang bật ở trang Nguồn tư liệu, kỹ năng viết đã lưu và nội dung đã ghi trong buổi họp.</p>
         </div>
       )}
 

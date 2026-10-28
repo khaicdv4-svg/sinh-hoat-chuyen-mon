@@ -66,6 +66,26 @@ Viết tiếng Việt tự nhiên, ngắn gọn, giọng của một giáo viên
 Chỉ dùng thông tin có trong dữ liệu được đưa. Không bịa số liệu, tên người, ngày tháng. Thiếu thông tin thì để trống hoặc ghi rõ là chưa có.
 Sinh hoạt chuyên môn theo hướng nghiên cứu bài học: bàn về việc học của học sinh, không chấm điểm hay xếp loại giờ dạy của đồng nghiệp.`;
 
+/** Thêm kỹ năng viết của tổ trưởng (nếu có) vào lời nhắc hệ thống. */
+export function withSkill(g: Guard, system: string): string {
+  const k = g.ai.skill?.trim();
+  return k ? `${system}\n\n[Kỹ năng và hướng dẫn viết do tổ trưởng cung cấp, làm theo]\n${k.slice(0, 20000)}` : system;
+}
+
+/** Lấy chữ từ tệp Word, PDF hoặc văn bản thuần (dùng cho nguồn tư liệu). */
+export async function bufferToText(buf: Buffer, fileName: string, mime: string | null): Promise<string> {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".docx")) return (await mammoth.extractRawText({ buffer: buf })).value;
+  if (lower.endsWith(".pdf") || mime === "application/pdf") {
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const pdf = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return Array.isArray(text) ? text.join("\n") : text;
+  }
+  if (/\.(txt|md|csv|ics|json|html?)$/.test(lower) || mime?.startsWith("text/")) return buf.toString("utf8");
+  throw new AiError("Chưa đọc được loại tệp này. Dùng Word (.docx), PDF, .txt, .md hoặc .ics.", 415);
+}
+
 export async function askText(g: Guard, feature: string, system: string, content: string | Block[], maxTokens = 1500): Promise<string> {
   const cfg = pickConfig(g.ai, feature);
   if (cfg.provider === "openai") {

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types";
+import type { Member, Profile } from "@/lib/types";
 
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
@@ -12,11 +12,19 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   return data as Profile;
 });
 
+/** Dòng thành viên (họ tên, nhiệm vụ) gắn với tài khoản; null nếu chưa khai hồ sơ. */
+export const getMyMember = cache(async (userId: string): Promise<Member | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("shcm_members").select("*").eq("user_id", userId).maybeSingle();
+  return (data as Member) ?? null;
+});
+
 /** Thành viên đã được duyệt. Chưa đăng nhập thì về /login, chưa được duyệt thì về /cho-duyet. */
 export async function requireMember(): Promise<Profile> {
   const profile = await getProfile();
   if (!profile) redirect("/login");
   if (profile.status !== "approved") redirect("/cho-duyet");
+  if (!(await getMyMember(profile.id))) redirect("/ho-so");
   return profile;
 }
 

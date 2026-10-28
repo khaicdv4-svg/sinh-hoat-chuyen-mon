@@ -13,13 +13,14 @@ export type AiSettings = {
   apiKey: string;
   models: AiModelEntry[];
   defaultId: string;
+  skill: string; // kỹ năng/hướng dẫn viết của tổ trưởng, thêm vào lời nhắc
   routes: { nhe?: string; tep?: string }; // nhe: chỉnh ý kiến giáo viên; tep: đọc tệp (nhập biên bản, kế hoạch, văn bản, mẫu)
 };
 
 /** Cấu hình một lần gọi AI. */
 export type AiConfig = { apiKey: string; baseUrl: string; model: string; provider: "anthropic" | "openai" };
 
-export const AI_SETTING_KEYS = ["ai_api_key", "ai_models", "ai_default", "ai_route_nhe", "ai_route_tep", "ai_base_url", "ai_model", "ai_provider"] as const;
+export const AI_SETTING_KEYS = ["ai_api_key", "ai_models", "ai_default", "ai_route_nhe", "ai_route_tep", "ai_base_url", "ai_model", "ai_provider", "ai_skill"] as const;
 
 const FILE_FEATURES = new Set(["nhap_bien_ban", "chia_ke_hoach", "van_ban_moi", "mau_bien_ban"]);
 /** Chỉ hai nhóm có thể đặt riêng; việc còn lại (gom ý kiến, kết luận…) dùng model mặc định. */
@@ -57,6 +58,7 @@ export function buildSettings(saved: Record<string, string>): AiSettings {
     apiKey: saved.ai_api_key || process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY || "",
     models,
     defaultId,
+    skill: saved.ai_skill ?? "",
     routes: { nhe: saved.ai_route_nhe || undefined, tep: saved.ai_route_tep || undefined },
   };
 }

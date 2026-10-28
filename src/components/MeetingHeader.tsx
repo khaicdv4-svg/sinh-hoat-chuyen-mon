@@ -3,7 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Attendance, CalendarWeek, Meeting, Member, Template } from "@/lib/types";
 import {
-  acceptAllProposals, applyTemplate, deleteMeeting, lockMeeting, saveAttendance, saveMinutes, unlockMeeting, updateMeeting,
+  acceptAllProposals, applyTemplate, lockMeeting, saveAttendance, saveMinutes, unlockMeeting, updateMeeting,
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { fmtDate, fmtTime, fmtWeekday, memberName, safeFileName } from "@/lib/format";
@@ -143,19 +143,6 @@ export default function MeetingHeader({
           ))}
         </div>
       )}
-      {leader && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <a className="btn btn-sm" href={`/api/export/${meeting.id}?format=docx`}>Tải Word</a>
-          <a className="btn btn-sm" href={`/api/export/${meeting.id}?format=html`}>Tải HTML</a>
-          <a className="btn btn-sm" href={`/api/export/${meeting.id}?format=pdf`} target="_blank">In / PDF</a>
-          <a className="btn btn-sm" href={`/api/export/${meeting.id}?format=zip`}>Tải trọn gói (có minh chứng)</a>
-          {!locked && (
-            <button className="btn btn-sm btn-danger ml-auto" disabled={pending}
-              onClick={() => confirm("Xóa hẳn biên bản này cùng mọi nội dung?") && run(() => deleteMeeting(meeting.id))}>Xóa biên bản</button>
-          )}
-        </div>
-      )}
-
       {panel === "info" && leader && (
         <div className="mt-3 grid gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-2">
           <label className="text-sm">Ngày họp<input type="date" className="input mt-1" value={f.meeting_date} onChange={(e) => setF({ ...f, meeting_date: e.target.value })} /></label>
