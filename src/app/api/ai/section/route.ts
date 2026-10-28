@@ -1,4 +1,5 @@
 import { aiGuard, askText, errorResponse, fileToBlocks, SYSTEM_BASE, AiError, type Block } from "@/lib/ai";
+import { buildContext } from "@/lib/ai-context";
 
 export const maxDuration = 120;
 
@@ -63,7 +64,8 @@ export async function POST(req: Request) {
         try { blocks.push(...(await fileToBlocks(g, f.storage_path, f.file_name, f.mime_type))); } catch { /* bỏ qua tệp AI không đọc được */ }
       }
     }
-    blocks.push({ type: "text", text: lines.join("\n") });
+    const ctx = await buildContext(g, { meetingId: meeting.id, sectionId: sec.id, entries: "none", maxChars: 5000 });
+    blocks.push({ type: "text", text: `[Bối cảnh]\n${ctx}\n\n[Nội dung cần xử lý]\n${lines.join("\n")}` });
 
     const out = await askText(g, sec.ai_action, `${SYSTEM_BASE}\nNhiệm vụ: ${task}\nChỉ trả về nội dung dự thảo, không lời dẫn, không giải thích. Đây chỉ là dự thảo để tổ trưởng xem và sửa.`, blocks, 2000);
     if (!out) throw new AiError("AI chưa soạn được, thử lại giúp.", 502);

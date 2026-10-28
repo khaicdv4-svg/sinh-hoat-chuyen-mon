@@ -75,7 +75,7 @@ export default function SectionCard({
     if (!text.trim()) return;
     setAiBusy("opinion"); setMsg("");
     try {
-      const res = await fetch("/api/ai/opinion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, text }) });
+      const res = await fetch("/api/ai/opinion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, text, speakerId: recorder ? speaker || null : myMember?.id ?? null }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "AI chưa trả lời được.");
       setText(j.text); setUsedAi(true);
