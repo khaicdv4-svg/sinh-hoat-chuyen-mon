@@ -8,8 +8,8 @@ export default function Nav({ profile }: { profile: Profile | null }) {
   const leader = approved && profile?.role === "to_truong";
   return (
     <header className="topbar print:hidden">
-      <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-3 px-4 pb-4 pt-3">
-        <div className="flex w-full flex-wrap items-center justify-end gap-3 text-sm lg:absolute lg:right-4 lg:top-3 lg:w-auto">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4 pb-4 pt-2">
+        <div className="flex w-full flex-wrap items-center justify-end gap-3 text-sm">
           <ThemeSwitcher />
           {profile ? (
             <>
