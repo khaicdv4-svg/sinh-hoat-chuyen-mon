@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Profile } from "@/lib/types";
 import { ROLE_LABELS, TEAM_NAME } from "@/lib/constants";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 export default function Nav({ profile }: { profile: Profile | null }) {
   const approved = profile?.status === "approved";
@@ -25,6 +26,7 @@ export default function Nav({ profile }: { profile: Profile | null }) {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <ThemeSwitcher />
           {profile ? (
             <>
               <span className="text-gray-600">

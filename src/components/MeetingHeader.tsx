@@ -24,6 +24,8 @@ export default function MeetingHeader({
   const [panel, setPanel] = useState<"" | "info" | "att" | "vote" | "import">("");
   const fileIn = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [picked, setPicked] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
   const locked = meeting.status === "locked";
   const active = members.filter((m) => m.active);
@@ -84,6 +86,7 @@ export default function MeetingHeader({
       setOk(`AI đã đưa ${j.entries} đoạn vào ${j.sections} mục${j.newSections ? `, thêm ${j.newSections} mục mới` : ""}${j.skipped ? `, bỏ qua ${j.skipped} chỗ còn chấm chấm để trống` : ""}. Các đoạn đang ở dạng đề xuất (khung tím), thầy xem lại rồi bấm "Nhận tất cả".`);
       setPanel("");
       if (fileIn.current) fileIn.current.value = "";
+      setPicked("");
       router.refresh();
     } catch (e) { setMsg((e as Error).message); }
     setImporting(false);
@@ -120,7 +123,7 @@ export default function MeetingHeader({
           {leader && !locked && <button className="btn btn-sm" onClick={() => toggle("info")}>Thông tin buổi họp</button>}
           {canMinutes && <button className="btn btn-sm" onClick={() => toggle("att")}>Điểm danh</button>}
           {canMinutes && <button className="btn btn-sm" onClick={() => toggle("vote")}>Biểu quyết, giờ kết thúc</button>}
-          {leader && !locked && <button className="btn btn-sm" onClick={() => toggle("import")}>Nhập từ biên bản Word</button>}
+          {leader && !locked && <button className="btn btn-sm btn-accent" onClick={() => toggle("import")}>📄 Nhập từ biên bản Word</button>}
           {leader && !locked && (pendingOpinions ?? 0) > 0 && (
             <span className="badge badge-ai">{pendingOpinions} ý kiến chờ xem</span>
           )}
@@ -222,9 +225,28 @@ export default function MeetingHeader({
             Tải biên bản Word (.docx) hoặc PDF đã soạn sẵn. AI đọc rồi đưa từng đoạn vào đúng mục, ý kiến của ai gắn đúng tên người đó, mục nào chưa có thì thêm.
             Những chỗ còn chấm chấm để trống. Mọi đoạn ở dạng đề xuất, thầy duyệt rồi mới vào biên bản.
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <input ref={fileIn} type="file" accept=".docx,.pdf" />
-            <button className="btn btn-primary btn-sm" disabled={importing} onClick={importFile}>{importing ? "AI đang đọc (khoảng 1 phút)…" : "Nhập"}</button>
+          <div className="mt-3 flex flex-wrap items-stretch gap-3">
+            <label className={`filepick ${dragOver ? "drag" : ""}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f && fileIn.current) {
+                  const dt = new DataTransfer(); dt.items.add(f);
+                  fileIn.current.files = dt.files; setPicked(f.name);
+                }
+              }}>
+              <span className="btn btn-accent btn-lg">📄 Chọn tệp biên bản</span>
+              <span className="min-w-0 flex-1 break-words font-medium">
+                {picked || "Chưa chọn tệp. Bấm vào đây hoặc kéo tệp .docx, .pdf thả vào."}
+              </span>
+              <input ref={fileIn} type="file" accept=".docx,.pdf" className="sr-only"
+                onChange={(e) => setPicked(e.target.files?.[0]?.name ?? "")} />
+            </label>
+            <button className="btn btn-primary btn-lg" disabled={importing || !picked} onClick={importFile}>
+              {importing ? "AI đang đọc (khoảng 1 phút)…" : "Nhập vào biên bản"}
+            </button>
           </div>
         </div>
       )}
