@@ -52,8 +52,27 @@ a { color: inherit; }
   box-shadow: 0 6px 16px var(--sh-dark), 0 -1px 0 var(--sh-light) inset;
   border-bottom: 1px solid color-mix(in srgb, var(--surface) 30%, transparent);
 }
-.topbar nav a { padding: .3rem .7rem; border-radius: .7rem; font-weight: 500; transition: box-shadow .15s, background .15s; }
-.topbar nav a:hover { box-shadow: var(--inset-sm); background: color-mix(in srgb, var(--surface) 50%, transparent); }
+/* Tiêu đề chính: giữa trang, in hoa, đổ bóng nổi */
+.topbar-title {
+  display: block; text-transform: uppercase; font-weight: 800; letter-spacing: .05em;
+  font-size: clamp(1.5rem, 4.2vw, 2.4rem); line-height: 1.15; color: var(--brand-dark);
+  text-shadow: 0 2px 0 var(--sh-light), 3px 5px 8px var(--sh-dark);
+}
+.topbar-sub {
+  display: block; margin-top: .2rem; font-size: .8rem; font-weight: 700; letter-spacing: .14em;
+  color: var(--muted); text-shadow: 0 1px 0 var(--sh-light);
+}
+
+/* Các mục menu là khối nổi, có màu nền riêng */
+.navblocks { display: flex; flex-wrap: wrap; justify-content: center; gap: .65rem; }
+.navblocks a {
+  padding: .5rem 1.1rem; border-radius: .85rem; font-weight: 700; font-size: .95rem; color: var(--ink);
+  background: linear-gradient(145deg, var(--card-hi), color-mix(in srgb, var(--brand) 14%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  box-shadow: var(--raised-sm); transition: transform .12s, box-shadow .12s, background .12s;
+}
+.navblocks a:hover { transform: translateY(-2px); box-shadow: 4px 6px 12px var(--sh-dark), -4px -4px 9px var(--sh-light); }
+.navblocks a:active { transform: translateY(0); box-shadow: var(--inset-sm); }
 
 /* Nút nổi khối */
 .btn {
