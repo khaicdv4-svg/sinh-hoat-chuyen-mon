@@ -8,6 +8,8 @@ import type { Attendance, CalendarWeek, Entry, FileRow, Meeting, Member, Profile
 import MeetingHeader from "@/components/MeetingHeader";
 import SectionCard from "@/components/SectionCard";
 import ExportBar from "@/components/ExportBar";
+import AiAssistant from "@/components/AiAssistant";
+import { loadAiSettings } from "@/lib/ai-config";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const proposals = entries.filter((e) => e.status === "proposed").length;
   const pendingOpinions = entries.filter((e) => e.status === "pending").length;
   const groups = groupByPart(sections);
+  const aiSettings = leader && !locked ? await loadAiSettings() : null;
 
   return (
     <div>
@@ -78,6 +81,9 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         pendingOpinions={pendingOpinions}
         me={me.id}
       />
+      {aiSettings && (
+        <AiAssistant meetingId={id} models={aiSettings.models.map((m) => ({ id: m.id, label: m.label }))} defaultModelId={aiSettings.defaultId} />
+      )}
       <div className="mt-5 grid gap-6">
         {groups.map((g, gi) => (
           <div key={gi} className="grid gap-3">
