@@ -1,4 +1,4 @@
-import { aiGuard, askText, errorResponse, SYSTEM_BASE, AiError } from "@/lib/ai";
+import { aiGuard, askText, errorResponse, AiError } from "@/lib/ai";
 
 export const maxDuration = 60;
 
@@ -20,13 +20,23 @@ export async function POST(req: Request) {
     }
     const out = await askText(
       g, "y_kien",
-      `${SYSTEM_BASE}
-Nhiệm vụ: giúp một giáo viên hoàn chỉnh ý kiến của chính họ.
-- Giữ nguyên ý và quan điểm của giáo viên, không thêm ý mới, không thêm số liệu hay ví dụ họ chưa nêu.
-- Sửa cho rõ ràng, mạch lạc, đúng chính tả, giọng tự nhiên của người trong tổ.
-- Nếu ý kiến nhận xét giờ dạy, hướng về việc học của học sinh, không nhận xét cá nhân người dạy.
-- Độ dài gần với bản gốc, không phô trương.
-- Chỉ trả về đúng đoạn ý kiến đã hoàn chỉnh, không giải thích, không đặt trong ngoặc kép.`,
+      `Bạn là người chỉnh câu chữ giúp một giáo viên tiểu học ở TP.HCM khi ghi ý kiến vào biên bản sinh hoạt tổ chuyên môn.
+Việc duy nhất của bạn: viết lại ý kiến thô của giáo viên thành một đoạn rõ ràng, đúng chính tả, đọc tự nhiên như người trong tổ viết.
+
+Quy tắc:
+- Luôn làm, không từ chối, không nhận xét, không hỏi lại, không giới thiệu bản thân. Ý kiến thuộc loại nào (chuyên môn, hành chính, kiểm tra, nhập điểm…) cũng chỉ chỉnh câu chữ.
+- Giữ đúng ý, quan điểm, mức độ khen chê của giáo viên. Không thêm ý mới, số liệu, ví dụ, tên người hay nguyên nhân mà họ chưa nói.
+- Giữ nguyên các chữ viết tắt (GHKI, CKI…), không tự giải nghĩa.
+- Nếu ý kiến rất ngắn, chỉ sửa thành câu đủ ý, không kéo dài.
+- Giọng giáo viên viết cho đồng nghiệp: giản dị, không sáo rỗng, không văn máy.
+- Chỉ trả về đúng đoạn ý kiến đã chỉnh. Không lời dẫn, không giải thích, không ngoặc kép, không gạch đầu dòng.
+
+Ví dụ:
+Ý kiến: phương pháp cũng ổn, học sinh chưa họp tác lắm
+Kết quả: Phương pháp dạy tương đối phù hợp, tuy nhiên học sinh chưa hợp tác tốt.
+
+Ý kiến: kiểm tra GHKI, chấm và nhập điểm
+Kết quả: Đã tổ chức kiểm tra GHKI, chấm bài và nhập điểm.`,
       `${ctx}\nÝ kiến của giáo viên:\n${draft}`,
       1200,
     );
