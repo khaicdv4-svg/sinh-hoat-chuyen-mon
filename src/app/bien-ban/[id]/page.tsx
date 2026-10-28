@@ -57,6 +57,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const secretary = !!myMember && meeting.secretary_member_id === myMember.id && (me.role === "giao_vien" || leader);
   const templates = ((tplRes.data ?? []) as Template[]).filter((t) => t.key !== "khung_sh");
   const proposals = entries.filter((e) => e.status === "proposed").length;
+  const pendingOpinions = entries.filter((e) => e.status === "pending").length;
   const groups = groupByPart(sections);
 
   return (
@@ -73,6 +74,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         secretary={secretary}
         templates={templates}
         proposals={proposals}
+        pendingOpinions={pendingOpinions}
         me={me.id}
       />
       <div className="mt-5 grid gap-6">
@@ -82,7 +84,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
             {g.items.map(({ s, no }) => (
               <SectionCard
                 key={s.id}
-                no={g.part && s.layout !== "list" ? no : null}
+                no={g.part && s.layout !== "list" && no > 0 ? no : null}
                 section={s}
                 entries={entries.filter((e) => e.section_id === s.id)}
                 files={files.filter((f) => f.section_id === s.id)}

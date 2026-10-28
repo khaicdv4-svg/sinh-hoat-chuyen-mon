@@ -23,7 +23,40 @@ export async function addEntry(
   const supabase = await createClient();
   const { error } = await supabase
     .from("shcm_entries")
-    .insert({ section_id: sectionId, author_id: me.id, body: text, source, status: "accepted", speaker_id: speakerId || null });
+    .insert({ section_id: sectionId, author_id: me.id, body: text, source, status: "accepted", kind: "noi_dung", speaker_id: speakerId || null });
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+/**
+ * Giáo viên gửi ý kiến ở một mục. Thành viên thường: chờ tổ trưởng quyết định.
+ * Tổ trưởng hoặc thư ký ghi thay người khác (speakerId): vào thẳng biên bản.
+ */
+export async function addOpinion(
+  sectionId: string, body: string, source: "manual" | "ai_assisted" = "manual", speakerId: string | null = null, direct = false,
+): Promise<Result> {
+  const me = await requireMember();
+  const text = body.trim();
+  if (!text) return fail("Chưa có nội dung.");
+  if (text.length > 8000) return fail("Nội dung dài quá 8000 ký tự.");
+  const supabase = await createClient();
+  const { error } = await supabase.from("shcm_entries").insert({
+    section_id: sectionId, author_id: me.id, body: text, source, kind: "y_kien",
+    status: direct ? "accepted" : "pending", speaker_id: speakerId || null,
+  });
+  if (error) return fail(friendly(error.message));
+  revalidatePath("/bien-ban/[id]", "page");
+  return { ok: true };
+}
+
+/** Tổ trưởng quyết định ý kiến: bổ sung vào nội dung, ghi nhận ở mục ý kiến, hoặc xem xét lại (không vào biên bản). */
+export async function decideOpinion(id: string, decision: "merged" | "accepted" | "dismissed" | "pending", body?: string): Promise<Result> {
+  await requireLeader();
+  const supabase = await createClient();
+  const patch: Record<string, unknown> = { status: decision };
+  if (body && body.trim()) patch.body = body.trim();
+  const { error } = await supabase.from("shcm_entries").update(patch).eq("id", id).eq("kind", "y_kien");
   if (error) return fail(friendly(error.message));
   revalidatePath("/bien-ban/[id]", "page");
   return { ok: true };
@@ -168,6 +201,9 @@ async function addSections(meetingId: string, sections: TemplateSection[]): Prom
       ai_action: s.ai_action ?? "none",
       part: s.part ?? null,
       layout: s.layout ?? "block",
+      allow_opinions: s.allow_opinions ?? true,
+      opinion_label: s.opinion_label ?? null,
+      numbered: s.numbered ?? true,
     }));
   if (!rows.length) return fail("Biên bản này đã có đủ các đề mục của mẫu.");
   const { error } = await supabase.from("shcm_sections").insert(rows);

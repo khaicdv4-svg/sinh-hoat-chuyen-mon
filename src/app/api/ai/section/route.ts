@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       secIds.splice(0, secIds.length, ...sectionList.map((s) => s.id));
     }
     const { data: ents } = secIds.length
-      ? await g.supabase.from("shcm_entries").select("section_id, body, created_at, speaker_id, author:author_id(full_name, email)").in("section_id", secIds).eq("status", "accepted").order("created_at")
+      ? await g.supabase.from("shcm_entries").select("section_id, body, created_at, speaker_id, author:author_id(full_name, email)").in("section_id", secIds).in("status", ["accepted", "merged"]).order("created_at")
       : { data: [] };
     const { data: roster } = await g.supabase.from("shcm_members").select("id, honorific, full_name");
     const speakerName = (id: string | null) => {

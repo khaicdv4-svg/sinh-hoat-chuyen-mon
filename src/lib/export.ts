@@ -9,7 +9,7 @@ import type { Attendance, Meeting, Member } from "@/lib/types";
 
 export interface ExFile { id: string; name: string; mime: string | null; size: number; uploader: string; path: string; url?: string; image?: Buffer }
 export interface ExEntry { speaker: string | null; body: string }
-export interface ExSection { key: string; title: string; part: string | null; layout: "block" | "inline" | "list"; entries: ExEntry[]; files: ExFile[]; fileLabel: string }
+export interface ExSection { key: string; title: string; part: string | null; layout: "block" | "inline" | "list"; entries: ExEntry[]; opinions: ExEntry[]; opinionLabel: string; numbered: boolean; files: ExFile[]; fileLabel: string }
 export interface ExDoc {
   meeting: Meeting;
   chair: Member | null;
@@ -35,7 +35,7 @@ export async function loadDoc(supabase: SupabaseClient, meetingId: string, opts:
   const members = (mem ?? []) as Member[];
   const ids = (secs ?? []).map((s) => s.id);
   const [{ data: ents }, { data: files }] = await Promise.all([
-    ids.length ? supabase.from("shcm_entries").select("section_id, body, speaker_id, created_at").in("section_id", ids).eq("status", "accepted").order("created_at") : Promise.resolve({ data: [] }),
+    ids.length ? supabase.from("shcm_entries").select("section_id, body, speaker_id, created_at, kind, status").in("section_id", ids).in("status", ["accepted", "merged"]).order("created_at") : Promise.resolve({ data: [] }),
     ids.length ? supabase.from("shcm_files").select("id, section_id, file_name, mime_type, size_bytes, storage_path, created_at, uploader:uploaded_by(full_name, email)").in("section_id", ids).eq("kind", "minh_chung").order("created_at") : Promise.resolve({ data: [] }),
   ]);
 
@@ -74,7 +74,13 @@ export async function loadDoc(supabase: SupabaseClient, meetingId: string, opts:
     sections: (secs ?? []).map((s) => ({
       key: s.key, title: s.title, part: s.part, layout: s.layout ?? "block",
       fileLabel: s.file_label || "Minh chứng",
-      entries: (ents ?? []).filter((e) => e.section_id === s.id).map((e) => ({ speaker: fullName(byId(e.speaker_id)) || null, body: e.body })),
+      numbered: s.numbered !== false,
+      opinionLabel: s.opinion_label || "Ý kiến",
+      entries: (ents ?? []).filter((e) => e.section_id === s.id && e.kind !== "y_kien" || e.section_id === s.id && e.status === "merged").map((e) =>
+        e.status === "merged"
+          ? { speaker: null, body: `${e.body} (ý kiến bổ sung của ${fullName(byId(e.speaker_id)) || "giáo viên"})` }
+          : { speaker: fullName(byId(e.speaker_id)) || null, body: e.body }),
+      opinions: (ents ?? []).filter((e) => e.section_id === s.id && e.kind === "y_kien" && e.status === "accepted").map((e) => ({ speaker: fullName(byId(e.speaker_id)) || null, body: e.body })),
       files: exFiles.get(s.id) ?? [],
     })),
   };
@@ -173,6 +179,10 @@ function buildBlocks(d: ExDoc): Block[] {
       }
       if (!s.entries.length) p([{ t: DOTS }]);
       s.entries.forEach((e) => bodyLines(e.body, e.speaker ? [{ t: `${e.speaker}: ` }] : undefined));
+    }
+    if (s.opinions.length) {
+      p([{ t: `${s.opinionLabel}:`, i: true }], { keepNext: true });
+      s.opinions.forEach((e) => bodyLines(e.body, [{ t: "- " }, ...(e.speaker ? [{ t: `${e.speaker}: ` }] : [])]));
     }
     if (s.files.length) p([{ t: `${s.fileLabel} (xem phụ lục): `, i: true }, { t: s.files.map((f) => f.name).join("; "), i: true }]);
   };

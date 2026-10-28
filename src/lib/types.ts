@@ -71,6 +71,9 @@ export interface Section {
   assignee_id: string | null;
   part: string | null;
   layout: "block" | "inline" | "list";
+  allow_opinions: boolean;
+  opinion_label: string | null;
+  numbered: boolean;
 }
 
 export interface Entry {
@@ -81,7 +84,8 @@ export interface Entry {
   source: "manual" | "ai_assisted" | "ke_hoach" | "van_ban_moi" | "ai_summary" | "nhap_file";
   speaker_id: string | null;
   source_file_id: string | null;
-  status: "proposed" | "accepted";
+  status: "proposed" | "accepted" | "pending" | "merged" | "dismissed";
+  kind: "noi_dung" | "y_kien";
   created_at: string;
   updated_at: string;
   author?: { full_name: string | null } | null;
@@ -121,6 +125,9 @@ export interface TemplateSection {
   position?: number;
   part?: string | null;
   layout?: "block" | "inline" | "list";
+  allow_opinions?: boolean;
+  opinion_label?: string | null;
+  numbered?: boolean;
 }
 
 export interface Template {

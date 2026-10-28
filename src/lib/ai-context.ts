@@ -57,7 +57,7 @@ export async function buildContext(g: Guard, o: Opts): Promise<string> {
   // Tất cả nội dung đã nhận của buổi này
   const ids = sections.map((s) => s.id);
   const { data: ents } = ids.length
-    ? await sb.from("shcm_entries").select("section_id, body, speaker_id, created_at").in("section_id", ids).eq("status", "accepted").order("created_at")
+    ? await sb.from("shcm_entries").select("section_id, body, speaker_id, created_at").in("section_id", ids).in("status", ["accepted", "merged"]).order("created_at")
     : { data: [] as { section_id: string; body: string; speaker_id: string | null }[] };
 
   const render = (sid: string, perLine: number) =>
@@ -80,7 +80,7 @@ export async function buildContext(g: Guard, o: Opts): Promise<string> {
   if (prev) {
     const { data: ps } = await sb.from("shcm_sections").select("id, title").eq("meeting_id", prev.id).eq("key", "ket_luan").maybeSingle();
     if (ps) {
-      const { data: pe } = await sb.from("shcm_entries").select("body").eq("section_id", ps.id).eq("status", "accepted").order("created_at");
+      const { data: pe } = await sb.from("shcm_entries").select("body").eq("section_id", ps.id).in("status", ["accepted", "merged"]).order("created_at");
       const body = (pe ?? []).map((e) => e.body).join("\n");
       if (body.trim()) out.push(`\n[Kết luận buổi trước: ${prev.title}]\n${clip(body, 1200)}`);
     }

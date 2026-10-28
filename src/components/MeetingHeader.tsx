@@ -12,10 +12,10 @@ import { BUCKET, SCHOOL_NAME, TEAM_NAME } from "@/lib/constants";
 type R = { ok: boolean; error?: string };
 
 export default function MeetingHeader({
-  meeting, members, attendance, calendar, leader, secretary, templates, proposals, me,
+  meeting, members, attendance, calendar, leader, secretary, templates, proposals, pendingOpinions, me,
 }: {
   meeting: Meeting; members: Member[]; attendance: Attendance[]; calendar: CalendarWeek[];
-  leader: boolean; secretary: boolean; templates: Template[]; proposals: number; me: string;
+  leader: boolean; secretary: boolean; templates: Template[]; proposals: number; pendingOpinions?: number; me: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -121,6 +121,9 @@ export default function MeetingHeader({
           {canMinutes && <button className="btn btn-sm" onClick={() => toggle("att")}>Điểm danh</button>}
           {canMinutes && <button className="btn btn-sm" onClick={() => toggle("vote")}>Biểu quyết, giờ kết thúc</button>}
           {leader && !locked && <button className="btn btn-sm" onClick={() => toggle("import")}>Nhập từ biên bản Word</button>}
+          {leader && !locked && (pendingOpinions ?? 0) > 0 && (
+            <span className="badge badge-ai">{pendingOpinions} ý kiến chờ xem</span>
+          )}
           {leader && !locked && proposals > 0 && (
             <button className="btn btn-sm btn-primary" disabled={pending} onClick={() => confirm(`Nhận cả ${proposals} đề xuất vào biên bản?`) && run(() => acceptAllProposals(meeting.id))}>
               Nhận tất cả {proposals} đề xuất

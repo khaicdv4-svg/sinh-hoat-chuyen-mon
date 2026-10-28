@@ -93,7 +93,7 @@ export const memberName = (m: { honorific: string; full_name: string } | null | 
   m ? `${m.honorific} ${m.full_name}` : "";
 
 /** Nhóm các đề mục theo phần, giữ thứ tự; trả về số thứ tự trong phần. */
-export function groupByPart<T extends { part: string | null; layout?: string }>(sections: T[]) {
+export function groupByPart<T extends { part: string | null; layout?: string; numbered?: boolean }>(sections: T[]) {
   const groups: { part: string | null; items: { s: T; no: number }[] }[] = [];
   for (const s of sections) {
     let g = groups[groups.length - 1];
@@ -101,7 +101,8 @@ export function groupByPart<T extends { part: string | null; layout?: string }>(
       g = { part: s.part, items: [] };
       groups.push(g);
     }
-    g.items.push({ s, no: g.items.length + 1 });
+    const no = s.numbered === false ? 0 : g.items.filter((x) => x.no > 0).length + 1;
+    g.items.push({ s, no });
   }
   return groups;
 }

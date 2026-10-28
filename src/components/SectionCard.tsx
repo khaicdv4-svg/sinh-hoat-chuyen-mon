@@ -3,7 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Entry, FileRow, Member, Profile, Section } from "@/lib/types";
 import {
-  acceptProposal, addEntry, deleteEntry, deleteFile, deleteSection, renameSection, setAssignee, updateEntry,
+  acceptProposal, addEntry, addOpinion, decideOpinion, deleteEntry, deleteFile, deleteSection, renameSection, setAssignee, updateEntry,
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { AI_ACTION_LABELS, BUCKET, EDITORS_LABELS, MAX_FILE_BYTES } from "@/lib/constants";
@@ -13,7 +13,7 @@ type EntryX = Entry & { author?: { full_name: string | null; email?: string } | 
 type FileX = FileRow & { uploader?: { full_name: string | null; email?: string } | null };
 type Run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => void;
 
-const PROTECTED = ["danh_gia_cm", "danh_gia_cn", "danh_gia_nv", "chuong_trinh", "van_ban", "van_dung", "ket_luan"];
+const PROTECTED = ["danh_gia_cm", "danh_gia_cn", "danh_gia_nv", "chuyen_tiep", "chuong_trinh", "nhiem_vu", "van_ban", "cd_noi_dung", "chia_se", "phan_cong", "ket_luan"];
 
 function who(p?: { full_name: string | null; email?: string } | null) {
   return p?.full_name || p?.email || "Thành viên đã rời tổ";
@@ -56,8 +56,16 @@ export default function SectionCard({
 
   const canEntry = !locked && allowed(section.entry_editors, me, section.assignee_id, secretary);
   const canFile = !locked && section.files_mode !== "none" && allowed(section.file_editors, me, section.assignee_id, secretary);
-  const accepted = entries.filter((e) => e.status === "accepted");
-  const proposals = entries.filter((e) => e.status === "proposed");
+  const accepted = entries.filter((e) => (e.kind !== "y_kien" && e.status === "accepted") || (e.kind === "y_kien" && e.status === "merged"));
+  const opAccepted = entries.filter((e) => e.kind === "y_kien" && e.status === "accepted");
+  const opPending = entries.filter((e) => e.kind === "y_kien" && e.status === "pending");
+  const opDismissed = entries.filter((e) => e.kind === "y_kien" && e.status === "dismissed");
+  const canOpinion = !locked && section.allow_opinions && (me.role === "giao_vien" || me.role === "to_truong");
+  const opLabel = section.opinion_label || "Ý kiến";
+  const [otext, setOtext] = useState("");
+  const [oSpeaker, setOSpeaker] = useState(myMember?.id ?? "");
+  const [oAi, setOAi] = useState(false);
+  const proposals = entries.filter((e) => e.status === "proposed" && e.kind !== "y_kien");
   const assignee = profiles.find((m) => m.id === section.assignee_id);
   const needsAssignee = section.entry_editors === "assigned" || section.file_editors === "assigned";
   const memberById = (id: string | null) => members.find((m) => m.id === id) ?? null;
@@ -71,14 +79,16 @@ export default function SectionCard({
       else { setMsg(""); after?.(); refresh(); }
     });
 
-  async function aiPolish() {
-    if (!text.trim()) return;
+  async function aiPolish(kind: "content" | "opinion" = "content") {
+    const src = kind === "opinion" ? otext : text;
+    if (!src.trim()) return;
     setAiBusy("opinion"); setMsg("");
     try {
-      const res = await fetch("/api/ai/opinion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, text, speakerId: recorder ? speaker || null : myMember?.id ?? null }) });
+      const sp = kind === "opinion" ? (recorder ? oSpeaker || null : myMember?.id ?? null) : recorder ? speaker || null : myMember?.id ?? null;
+      const res = await fetch("/api/ai/opinion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionId: section.id, text: src, speakerId: sp }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "AI chưa trả lời được.");
-      setText(j.text); setUsedAi(true);
+      if (kind === "opinion") { setOtext(j.text); setOAi(true); } else { setText(j.text); setUsedAi(true); }
     } catch (e) { setMsg((e as Error).message); }
     setAiBusy("");
   }
@@ -222,8 +232,9 @@ export default function SectionCard({
                 <>
                   <p className="whitespace-pre-wrap">
                     {section.layout === "list" && <span>{i + 1}. </span>}
-                    {sp && <b>{memberName(sp)}: </b>}
+                    {sp && e.kind !== "y_kien" && <b>{memberName(sp)}: </b>}
                     {e.body}
+                    {e.kind === "y_kien" && <i className="text-gray-600"> (ý kiến bổ sung của {sp ? memberName(sp) : who(e.author)})</i>}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
                     {sp ? "" : `${who(e.author)} · `}{fmtDateTime(e.created_at)}{recordedBy}
@@ -232,7 +243,11 @@ export default function SectionCard({
                     {e.source === "van_ban_moi" && <span className="badge badge-ai ml-2">theo văn bản mới</span>}
                     {e.source === "ai_summary" && <span className="badge badge-ai ml-2">AI tổng hợp, tổ trưởng đã nhận</span>}
                     {e.source === "nhap_file" && <span className="badge badge-ai ml-2">nhập từ tệp</span>}
-                    {!locked && (leader || mine) && (
+                    {e.kind === "y_kien" && <span className="badge badge-ai ml-2">ý kiến đã bổ sung vào nội dung</span>}
+                    {e.kind === "y_kien" && leader && !locked && (
+                      <button className="ml-3 underline" disabled={pending} onClick={() => run(() => decideOpinion(e.id, "pending"))}>Trả về chờ xử lý</button>
+                    )}
+                    {!locked && (leader || (mine && e.kind !== "y_kien")) && (
                       <>
                         <button className="ml-3 underline" onClick={() => { setEditing(e.id); setEditText(e.body); setEditSpeaker(e.speaker_id ?? ""); }}>Sửa</button>
                         <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa nội dung này?") && run(() => deleteEntry(e.id))}>Xóa</button>
@@ -268,7 +283,7 @@ export default function SectionCard({
               onClick={() => run(() => addEntry(section.id, text, usedAi ? "ai_assisted" : "manual", recorder ? speaker || null : myMember?.id ?? null), () => { setText(""); setUsedAi(false); })}>
               Gửi
             </button>
-            <button className="btn btn-sm" disabled={!text.trim() || !!aiBusy} onClick={aiPolish}
+            <button className="btn btn-sm" disabled={!text.trim() || !!aiBusy} onClick={() => aiPolish("content")}
               title={text.trim() ? "" : "Viết ý kiến trước, AI mới hỗ trợ hoàn chỉnh được"}>
               {aiBusy === "opinion" ? "AI đang soạn…" : "AI hỗ trợ ý kiến hoàn chỉnh"}
             </button>
@@ -278,6 +293,133 @@ export default function SectionCard({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {section.allow_opinions && (opAccepted.length > 0 || opPending.length > 0 || opDismissed.length > 0 || canOpinion) && (
+        <div className="mt-4 border-t border-dashed border-[var(--line)] pt-3">
+          <p className="text-sm font-semibold text-gray-700">{opLabel}</p>
+          <div className="mt-2 grid gap-2">
+            {opAccepted.map((e) => {
+              const sp = memberById(e.speaker_id);
+              return (
+                <div key={e.id} className="rounded-lg bg-[#f8f6ef] p-3 text-sm">
+                  {editing === e.id ? (
+                    <>
+                      <textarea className="input" rows={3} value={editText} onChange={(x) => setEditText(x.target.value)} />
+                      <div className="mt-2 flex gap-2">
+                        <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateEntry(e.id, editText), () => setEditing(null))}>Lưu</button>
+                        <button className="btn btn-sm" onClick={() => setEditing(null)}>Hủy</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap">{sp ? <b>{memberName(sp)}: </b> : <b>{who(e.author)}: </b>}{e.body}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Ghi nhận trong biên bản · {fmtDateTime(e.created_at)}
+                        {e.source === "ai_assisted" && <span className="badge badge-ai ml-2">có AI hỗ trợ soạn</span>}
+                        {!locked && (leader || secretary) && (
+                          <>
+                            <button className="ml-3 underline" onClick={() => { setEditing(e.id); setEditText(e.body); }}>Sửa</button>
+                            <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa ý kiến này?") && run(() => deleteEntry(e.id))}>Xóa</button>
+                          </>
+                        )}
+                        {leader && !locked && (
+                          <button className="ml-2 underline" disabled={pending} onClick={() => run(() => decideOpinion(e.id, "merged"))}>Chuyển thành bổ sung nội dung</button>
+                        )}
+                      </p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+            {opPending.map((e) => {
+              const sp = memberById(e.speaker_id);
+              const mine = e.author_id === me.id;
+              return (
+                <div key={e.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    {editing === e.id ? (
+                      <>
+                        <textarea className="input" rows={3} value={editText} onChange={(x) => setEditText(x.target.value)} />
+                        <div className="mt-2 flex gap-2">
+                          <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => updateEntry(e.id, editText), () => setEditing(null))}>Lưu</button>
+                          <button className="btn btn-sm" onClick={() => setEditing(null)}>Hủy</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap">{sp ? <b>{memberName(sp)}: </b> : <b>{who(e.author)}: </b>}{e.body}</p>
+                        <p className="mt-1 text-xs text-amber-800">
+                          Chờ tổ trưởng xem · {fmtDateTime(e.created_at)}
+                          {e.source === "ai_assisted" && <span className="badge badge-ai ml-2">có AI hỗ trợ soạn</span>}
+                          {!locked && (leader || mine) && (
+                            <>
+                              <button className="ml-3 underline" onClick={() => { setEditing(e.id); setEditText(e.body); }}>Sửa</button>
+                              <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa ý kiến này?") && run(() => deleteEntry(e.id))}>Xóa</button>
+                            </>
+                          )}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  {leader && !locked && editing !== e.id && (
+                    <div className="flex flex-wrap gap-2">
+                      <button className="btn btn-primary btn-sm" disabled={pending} title="Đưa vào nội dung của mục, ghi kèm (ý kiến bổ sung của …)" onClick={() => run(() => decideOpinion(e.id, "merged"))}>Bổ sung nội dung</button>
+                      <button className="btn btn-sm" disabled={pending} title="Hiện ở phần ý kiến của biên bản" onClick={() => run(() => decideOpinion(e.id, "accepted"))}>Ghi nhận ý kiến</button>
+                      <button className="btn btn-sm" disabled={pending} title="Không đưa vào biên bản" onClick={() => run(() => decideOpinion(e.id, "dismissed"))}>Xem xét lại</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {opDismissed.map((e) => {
+              const sp = memberById(e.speaker_id);
+              return (
+                <div key={e.id} className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
+                  <p className="whitespace-pre-wrap">{sp ? <b>{memberName(sp)}: </b> : <b>{who(e.author)}: </b>}{e.body}</p>
+                  <p className="mt-1 text-xs">
+                    Tổ trưởng đang xem xét lại, chưa đưa vào biên bản
+                    {!locked && leader && (
+                      <button className="ml-3 underline" disabled={pending} onClick={() => run(() => decideOpinion(e.id, "pending"))}>Khôi phục</button>
+                    )}
+                    {!locked && (leader || e.author_id === me.id) && (
+                      <button className="ml-2 underline" disabled={pending} onClick={() => confirm("Xóa ý kiến này?") && run(() => deleteEntry(e.id))}>Xóa</button>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {canOpinion && (
+            <div className="mt-3">
+              {recorder && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                  Người phát biểu:
+                  <select className="input !w-auto !py-1 text-sm" value={oSpeaker} onChange={(e) => setOSpeaker(e.target.value)}>
+                    <option value="">Không ghi tên</option>
+                    {activeMembers.map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
+                  </select>
+                </div>
+              )}
+              <textarea className="input" rows={3} maxLength={8000} value={otext}
+                placeholder={recorder && oSpeaker && oSpeaker !== myMember?.id ? `Ghi lại ý kiến của ${memberName(memberById(oSpeaker))}…` : "Nêu ý kiến của bạn ở mục này…"}
+                onChange={(e) => { setOtext(e.target.value); if (!e.target.value.trim()) setOAi(false); }} />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button className="btn btn-primary btn-sm" disabled={pending || !otext.trim()}
+                  onClick={() => run(() => addOpinion(section.id, otext, oAi ? "ai_assisted" : "manual", recorder ? oSpeaker || null : myMember?.id ?? null, recorder), () => { setOtext(""); setOAi(false); })}>
+                  {recorder ? "Ghi vào biên bản" : "Gửi ý kiến"}
+                </button>
+                <button className="btn btn-sm" disabled={!otext.trim() || !!aiBusy} onClick={() => aiPolish("opinion")}>
+                  {aiBusy === "opinion" ? "AI đang soạn…" : "AI hỗ trợ ý kiến hoàn chỉnh"}
+                </button>
+                {!recorder && <span className="text-xs text-gray-400">Ý kiến gửi lên sẽ chờ tổ trưởng xem và quyết định.</span>}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {msg && <p className="mt-2 text-sm text-red-700">{msg}</p>}

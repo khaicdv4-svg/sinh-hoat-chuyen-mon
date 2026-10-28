@@ -127,7 +127,7 @@ Quy tắc:
         .insert({
           meeting_id: meetingId, key, title: m.ten.trim(), part: m.phan || null, position: pos, layout: "block",
           entry_editors: m.ai_ghi === "leader" ? "leader" : "all", file_editors: "all",
-          files_mode: m.co_minh_chung ? "evidence" : "none", ai_action: yKien ? "gom_y_kien" : "none",
+          files_mode: m.co_minh_chung ? "evidence" : "none", ai_action: yKien ? "gom_y_kien" : "none", allow_opinions: true,
         })
         .select("id, key, title, part, position")
         .single();
