@@ -13,7 +13,7 @@ export type AiSettings = {
   apiKey: string;
   models: AiModelEntry[];
   defaultId: string;
-  routes: { nhe?: string; tep?: string }; // nhe: ý kiến, gom ý kiến; tep: đọc tệp (nhập biên bản, kế hoạch, văn bản, mẫu)
+  routes: { nhe?: string; tep?: string }; // nhe: chỉnh ý kiến giáo viên; tep: đọc tệp (nhập biên bản, kế hoạch, văn bản, mẫu)
 };
 
 /** Cấu hình một lần gọi AI. */
@@ -22,7 +22,8 @@ export type AiConfig = { apiKey: string; baseUrl: string; model: string; provide
 export const AI_SETTING_KEYS = ["ai_api_key", "ai_models", "ai_default", "ai_route_nhe", "ai_route_tep", "ai_base_url", "ai_model", "ai_provider"] as const;
 
 const FILE_FEATURES = new Set(["nhap_bien_ban", "chia_ke_hoach", "van_ban_moi", "mau_bien_ban"]);
-export const featureGroup = (feature: string): "nhe" | "tep" => (FILE_FEATURES.has(feature) ? "tep" : "nhe");
+/** Chỉ hai nhóm có thể đặt riêng; việc còn lại (gom ý kiến, kết luận…) dùng model mặc định. */
+export const featureGroup = (feature: string): "nhe" | "tep" | null => (feature === "y_kien" ? "nhe" : FILE_FEATURES.has(feature) ? "tep" : null);
 
 export function parseModels(raw: string | undefined): AiModelEntry[] {
   if (!raw) return [];
@@ -76,7 +77,8 @@ export function entryConfig(s: AiSettings, e: AiModelEntry): AiConfig {
 
 /** Chọn model cho từng việc: theo nhóm việc nếu có đặt, không thì dùng model mặc định. */
 export function pickConfig(s: AiSettings, feature: string): AiConfig {
-  const want = s.routes[featureGroup(feature)] || s.defaultId;
+  const g = featureGroup(feature);
+  const want = (g && s.routes[g]) || s.defaultId;
   const entry = s.models.find((m) => m.id === want) ?? s.models.find((m) => m.id === s.defaultId) ?? s.models[0];
   return entryConfig(s, entry);
 }

@@ -2,15 +2,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { saveAiSettings, testAi, type AiFormState } from "@/app/cai-dat-ai/actions";
 import type { AiModelEntry } from "@/lib/ai-config";
-
-const PRESETS: { label: string; model: string; kind: "anthropic" | "openai"; baseUrl: string }[] = [
-  { label: "Claude Opus 5.5", model: "pro/claude-opus-5-5-medium", kind: "anthropic", baseUrl: "https://apilit.dev" },
-  { label: "Claude Opus 5", model: "pro/claude-opus-5-medium", kind: "anthropic", baseUrl: "https://apilit.dev" },
-  { label: "Claude Fable 5.1", model: "pro/claude-fable-5-1-medium", kind: "anthropic", baseUrl: "https://apilit.dev" },
-  { label: "GPT-5.6 Luna", model: "pro/gpt-5.6-luna", kind: "openai", baseUrl: "https://apilit.dev/v1" },
-  { label: "GPT-5.6 Terra", model: "pro/gpt-5.6-terra", kind: "openai", baseUrl: "https://apilit.dev/v1" },
-  { label: "GPT-5.6 Sol", model: "pro/gpt-5.6-sol", kind: "openai", baseUrl: "https://apilit.dev/v1" },
-];
+import { PRESETS, type AiPreset } from "@/lib/ai-presets";
 
 const input = "rounded border border-gray-300 px-2 py-1.5 text-sm";
 
@@ -37,7 +29,7 @@ export default function AiSettingsForm({
     setRouteNhe(fix);
     setRouteTep(fix);
   };
-  const add = (p?: (typeof PRESETS)[number]) =>
+  const add = (p?: AiPreset) =>
     setModels((a) => [...a, { id: `new${a.length + 1}`, label: p?.label ?? "", model: p?.model ?? "", kind: p?.kind ?? "anthropic", baseUrl: p?.baseUrl ?? "https://apilit.dev" }]);
 
   const runTest = (m: AiModelEntry) => {
@@ -101,20 +93,20 @@ export default function AiSettingsForm({
       <section className="grid gap-3 rounded-lg border border-[var(--line)] bg-white p-5">
         <h2 className="font-medium">3. Dùng model nào cho việc gì</h2>
         <label className="grid gap-1 text-sm">
-          <span>Model mặc định</span>
+          <span>Model mặc định (cho gom ý kiến, dự thảo kết luận và mọi việc còn lại)</span>
           <select name="defaultIdx" value={defaultIdx} onChange={(e) => setDefaultIdx(Number(e.target.value))} className={input}>
             {models.map((m, i) => <option key={i} value={i}>{m.label || m.model || `Model ${i + 1}`}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm">
-          <span>Việc nhẹ: ý kiến giáo viên, gom ý kiến, dự thảo kết luận (nên chọn model rẻ)</span>
+          <span>Việc nhẹ: chỉnh ý kiến giáo viên (nút AI hỗ trợ ý kiến). Nên chọn model rẻ</span>
           <select name="routeNhe" value={routeNhe} onChange={(e) => setRouteNhe(Number(e.target.value))} className={input}>
             <option value={-1}>Dùng model mặc định</option>
             {models.map((m, i) => <option key={i} value={i}>{m.label || m.model || `Model ${i + 1}`}</option>)}
           </select>
         </label>
         <label className="grid gap-1 text-sm">
-          <span>Việc đọc tệp: nhập biên bản từ Word/PDF, chia kế hoạch năm, văn bản mới, tạo mẫu (nên chọn model mạnh)</span>
+          <span>Việc đọc tệp: nhập biên bản từ Word/PDF, chia kế hoạch năm, văn bản mới, tạo mẫu. Nên chọn model mạnh</span>
           <select name="routeTep" value={routeTep} onChange={(e) => setRouteTep(Number(e.target.value))} className={input}>
             <option value={-1}>Dùng model mặc định</option>
             {models.map((m, i) => <option key={i} value={i}>{m.label || m.model || `Model ${i + 1}`}</option>)}
