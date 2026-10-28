@@ -218,7 +218,7 @@ export default function SectionCard({
           const recordedBy = sp && sp.user_id !== e.author_id ? ` · ${who(e.author)} ghi` : "";
           const mine = e.author_id === me.id;
           return (
-            <div key={e.id} className="rounded-lg bg-[#f8f6ef] p-3 text-sm">
+            <div key={e.id} className="well p-3 text-sm">
               {editing === e.id ? (
                 <>
                   {recorder && <div className="mb-2">{speakerSelect(editSpeaker, setEditSpeaker)}</div>}
@@ -303,7 +303,7 @@ export default function SectionCard({
             {opAccepted.map((e) => {
               const sp = memberById(e.speaker_id);
               return (
-                <div key={e.id} className="rounded-lg bg-[#f8f6ef] p-3 text-sm">
+                <div key={e.id} className="well p-3 text-sm">
                   {editing === e.id ? (
                     <>
                       <textarea className="input" rows={3} value={editText} onChange={(x) => setEditText(x.target.value)} />

@@ -18,7 +18,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const row = (m: Meeting) => {
     const past = m.meeting_date && m.meeting_date < today && m.status === "open";
     return (
-      <Link key={m.id} href={`/bien-ban/${m.id}`} className="card flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-[#f7f5ee]">
+      <Link key={m.id} href={`/bien-ban/${m.id}`} className="card flex flex-wrap items-center gap-3 px-4 py-3 ">
         <div className="min-w-0 flex-1">
           <div className="font-medium">{m.title}</div>
           <div className="text-sm text-gray-500">

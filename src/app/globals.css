@@ -1,29 +1,103 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #1f2937;
-  --paper: #fbfaf7;
-  --line: #e5e1d8;
-  --brand: #1d5c4a;
-  --brand-dark: #144536;
+  --ink: #10201a;
+  --muted: #475a52;
+  --bg: #dfe7e2;
+  --surface: #eaf0ec;
+  --line: #c9d5cf;
+  --brand: #14634d;
+  --brand-dark: #0d4a39;
+  --brand-light: #1f8a6c;
   --warn: #b45309;
+  --sh-dark: rgba(98, 122, 111, .42);
+  --sh-light: rgba(255, 255, 255, .95);
+  --raised: 6px 6px 14px var(--sh-dark), -6px -6px 14px var(--sh-light);
+  --raised-sm: 3px 3px 7px var(--sh-dark), -3px -3px 7px var(--sh-light);
+  --inset: inset 4px 4px 9px var(--sh-dark), inset -4px -4px 9px var(--sh-light);
+  --inset-sm: inset 2px 2px 5px var(--sh-dark), inset -2px -2px 5px var(--sh-light);
 }
 
-html { background: var(--paper); color: var(--ink); }
-body { font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; line-height: 1.55; }
+html { background: var(--bg); color: var(--ink); font-size: 17px; }
+body {
+  font-family: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(255,255,255,.65), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(31,138,108,.10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { letter-spacing: -.005em; color: var(--ink); }
+a { color: inherit; }
+::selection { background: rgba(31,138,108,.25); }
 
-.btn { display: inline-flex; align-items: center; gap: .4rem; border-radius: .5rem; padding: .45rem .9rem; font-size: .9rem; font-weight: 500; border: 1px solid var(--line); background: #fff; cursor: pointer; transition: background .15s; }
-.btn:hover { background: #f3f1ea; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--brand); color: #fff; border-color: var(--brand); }
-.btn-primary:hover { background: var(--brand-dark); }
-.btn-danger { color: #b91c1c; }
-.btn-sm { padding: .25rem .6rem; font-size: .8rem; }
-.card { background: #fff; border: 1px solid var(--line); border-radius: .75rem; }
-.input { width: 100%; border: 1px solid var(--line); border-radius: .5rem; padding: .5rem .7rem; background: #fff; font-size: .95rem; }
-.input:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
-.badge { display: inline-block; border-radius: 999px; padding: .1rem .6rem; font-size: .75rem; font-weight: 500; }
-.badge-open { background: #dcfce7; color: #166534; }
-.badge-locked { background: #e5e7eb; color: #374151; }
-.badge-warn { background: #fef3c7; color: #92400e; }
-.badge-ai { background: #ede9fe; color: #5b21b6; }
+/* Chữ phụ đậm hơn để đọc rõ trên nền sáng */
+.text-gray-400 { color: #5d6f67; }
+.text-gray-500 { color: #4a5e56; }
+.text-gray-600 { color: #3b4d46; }
+.text-gray-700 { color: #2a3a34; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  background: linear-gradient(180deg, #f3f7f4, var(--surface));
+  box-shadow: 0 6px 16px var(--sh-dark), 0 -1px 0 var(--sh-light) inset;
+  border-bottom: 1px solid rgba(255,255,255,.7);
+}
+.topbar nav a { padding: .3rem .7rem; border-radius: .7rem; font-weight: 500; transition: box-shadow .15s, background .15s; }
+.topbar nav a:hover { box-shadow: var(--inset-sm); background: rgba(255,255,255,.35); }
+
+/* Nút nổi khối */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  border-radius: .8rem; padding: .5rem 1.05rem; font-size: .92rem; font-weight: 600;
+  border: 1px solid rgba(255,255,255,.65); color: var(--ink);
+  background: linear-gradient(145deg, #f6faf7, #dde6e0);
+  box-shadow: var(--raised-sm);
+  cursor: pointer; transition: transform .12s, box-shadow .12s, filter .12s;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 4px 5px 10px var(--sh-dark), -4px -4px 9px var(--sh-light); }
+.btn:active { transform: translateY(0); box-shadow: var(--inset-sm); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: var(--raised-sm); }
+.btn-primary {
+  color: #fff; border-color: rgba(255,255,255,.25); text-shadow: 0 1px 1px rgba(0,0,0,.25);
+  background: linear-gradient(145deg, var(--brand-light), var(--brand-dark));
+  box-shadow: 3px 4px 9px rgba(13,74,57,.45), -2px -2px 6px var(--sh-light);
+}
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary:active { box-shadow: inset 3px 3px 7px rgba(0,0,0,.35); }
+.btn-danger { color: #a31515; }
+.btn-sm { padding: .3rem .75rem; font-size: .82rem; border-radius: .65rem; }
+
+/* Thẻ nổi, ô chứa nội dung lõm xuống như đục lỗ */
+.card {
+  background: linear-gradient(145deg, #f1f6f3, var(--surface));
+  border: 1px solid rgba(255,255,255,.7); border-radius: 1.1rem;
+  box-shadow: var(--raised);
+}
+a.card { transition: transform .15s, box-shadow .15s; }
+a.card:hover { transform: translateY(-2px); box-shadow: 8px 10px 18px var(--sh-dark), -7px -7px 16px var(--sh-light); }
+.well {
+  background: #e3ebe6; border-radius: .9rem; box-shadow: var(--inset);
+  border: 1px solid rgba(150,170,160,.25);
+}
+.input {
+  width: 100%; border-radius: .8rem; padding: .6rem .85rem; font-size: 1rem; color: var(--ink);
+  background: #e4ece7; border: 1px solid rgba(150,170,160,.3); box-shadow: var(--inset-sm);
+}
+.input::placeholder { color: #6a7d75; }
+.input:focus { outline: 2px solid var(--brand-light); outline-offset: 1px; background: #eef4f0; }
+select.input { padding-right: 1.6rem; }
+
+.badge { display: inline-block; border-radius: 999px; padding: .12rem .7rem; font-size: .76rem; font-weight: 600; box-shadow: var(--inset-sm); }
+.badge-open { background: #d4efdd; color: #14532d; }
+.badge-locked { background: #dfe3e1; color: #2f3b36; }
+.badge-warn { background: #fbe8b8; color: #7a3d06; }
+.badge-ai { background: #e4defa; color: #4c1d95; }
+
+.section-title {
+  display: inline-block; padding: .35rem 1rem; border-radius: .8rem; font-size: .88rem; font-weight: 700;
+  color: var(--brand-dark); background: var(--surface); box-shadow: var(--raised-sm);
+}
+@media print { .topbar { display: none; } body { background: #fff; } }

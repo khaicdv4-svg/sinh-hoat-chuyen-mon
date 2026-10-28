@@ -48,7 +48,7 @@ export default function AiSettingsForm({
         </p>
       )}
 
-      <section className="grid gap-2 rounded-lg border border-[var(--line)] bg-white p-5">
+      <section className="grid gap-2 card p-5">
         <h2 className="font-medium">1. Khóa API (dùng chung cho mọi model)</h2>
         <input name="apiKey" type="password" autoComplete="off" placeholder={keyTail ? `Đã lưu: ••••${keyTail}. Để trống nếu giữ nguyên` : "Dán khóa API vào đây"} className={input} />
         <span className="text-xs text-gray-500">
@@ -56,7 +56,7 @@ export default function AiSettingsForm({
         </span>
       </section>
 
-      <section className="grid gap-3 rounded-lg border border-[var(--line)] bg-white p-5">
+      <section className="grid gap-3 card p-5">
         <h2 className="font-medium">2. Danh sách model</h2>
         <p className="text-xs text-gray-500">Chuẩn Anthropic: địa chỉ cổng không có /v1. Chuẩn OpenAI: địa chỉ có /v1. ID model copy từ trang Models của nhà cung cấp.</p>
         <div className="grid gap-3">
@@ -90,7 +90,7 @@ export default function AiSettingsForm({
         </div>
       </section>
 
-      <section className="grid gap-3 rounded-lg border border-[var(--line)] bg-white p-5">
+      <section className="grid gap-3 card p-5">
         <h2 className="font-medium">3. Dùng model nào cho việc gì</h2>
         <label className="grid gap-1 text-sm">
           <span>Model mặc định (cho gom ý kiến, dự thảo kết luận và mọi việc còn lại)</span>

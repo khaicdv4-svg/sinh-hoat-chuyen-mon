@@ -80,7 +80,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       <div className="mt-5 grid gap-6">
         {groups.map((g, gi) => (
           <div key={gi} className="grid gap-3">
-            {g.part && <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--brand)]">{partLabel(g.part, meeting.week_from, meeting.week_to)}</h2>}
+            {g.part && <h2 className="section-title justify-self-start uppercase tracking-wide">{partLabel(g.part, meeting.week_from, meeting.week_to)}</h2>}
             {g.items.map(({ s, no }) => (
               <SectionCard
                 key={s.id}

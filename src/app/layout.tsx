@@ -12,6 +12,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const profile = await getProfile();
   return (
     <html lang="vi">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-screen">
         <Nav profile={profile} />
         <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>

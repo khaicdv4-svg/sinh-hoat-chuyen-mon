@@ -6,9 +6,9 @@ export default function Nav({ profile }: { profile: Profile | null }) {
   const approved = profile?.status === "approved";
   const leader = approved && profile?.role === "to_truong";
   return (
-    <header className="border-b border-[var(--line)] bg-white print:hidden">
+    <header className="topbar print:hidden">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
-        <Link href="/" className="font-semibold text-[var(--brand)]">
+        <Link href="/" className="text-lg font-bold text-[var(--brand)]">
           Sinh hoạt chuyên môn
           <span className="ml-2 hidden text-xs font-normal text-gray-500 sm:inline">{TEAM_NAME}</span>
         </Link>
