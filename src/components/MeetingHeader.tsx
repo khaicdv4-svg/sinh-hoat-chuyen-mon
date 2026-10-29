@@ -139,11 +139,6 @@ export default function MeetingHeader({
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
-          {leader && (!locked ? (
-            <button className="btn btn-sm" disabled={pending} onClick={() => confirm("Khóa biên bản? Sau khi khóa không ai sửa được nội dung.") && run(() => lockMeeting(meeting.id))}>Khóa biên bản</button>
-          ) : (
-            <button className="btn btn-sm" disabled={pending} onClick={() => confirm("Mở khóa biên bản này? Việc mở khóa được ghi lại.") && run(() => unlockMeeting(meeting.id))}>Mở khóa</button>
-          ))}
         </div>
       )}
       {panel === "info" && leader && (

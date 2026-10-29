@@ -14,7 +14,7 @@ const FIELDS: { key: keyof Omit<Theme, "size">; label: string }[] = [
   { key: "brand", label: "Nút, nhấn" },
 ];
 
-export default function ThemeSwitcher() {
+export default function ThemeSwitcher({ placement = "down" }: { placement?: "down" | "up" }) {
   const [open, setOpen] = useState(false);
   const [t, setT] = useState<Theme>(DEFAULT_THEME);
   const box = useRef<HTMLDivElement>(null);
@@ -47,11 +47,11 @@ export default function ThemeSwitcher() {
 
   return (
     <div className="relative" ref={box}>
-      <button type="button" className="btn btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="btn btn-sm w-full" aria-expanded={open} onClick={() => setOpen(!open)}>
         🎨 Giao diện
       </button>
       {open && (
-        <div className="theme-panel text-sm">
+        <div className={`theme-panel text-sm ${placement === "up" ? "theme-panel-up" : ""}`}>
           <p className="mb-2 font-semibold">Chọn bộ màu có sẵn</p>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((p) => (

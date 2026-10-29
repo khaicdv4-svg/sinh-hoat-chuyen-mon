@@ -62,6 +62,15 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const proposals = entries.filter((e) => e.status === "proposed").length;
   const pendingOpinions = entries.filter((e) => e.status === "pending").length;
   const groups = groupByPart(sections);
+  // Thanh chọn mục tạo từ chính các phần của biên bản (I, II, III…; A, B, C…)
+  const navParts = groups
+    .map((g, gi) => ({ g, gi }))
+    .filter(({ g }) => g.part)
+    .map(({ g, gi }) => {
+      const label = partLabel(g.part, meeting.week_from, meeting.week_to);
+      const m = label.match(/^([IVXLC]+|[A-Z])\.\s*(.*)$/);
+      return { id: `phan-${gi}`, label, short: m ? `${m[1]}. ${m[2].split(/\s+/).slice(0, 3).join(" ").toLowerCase().replace(/^./, (c) => c.toUpperCase())}…` : label };
+    });
   const aiSettings = leader && !locked ? await loadAiSettings() : null;
 
   return (
@@ -84,9 +93,14 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       {aiSettings && (
         <AiAssistant meetingId={id} models={aiSettings.models.map((m) => ({ id: m.id, label: m.label }))} defaultModelId={aiSettings.defaultId} />
       )}
+      {navParts.length > 1 && (
+        <nav className="partnav print:hidden" aria-label="Các mục của biên bản">
+          {navParts.map((n) => <a key={n.id} href={`#${n.id}`} title={n.label}>{n.short}</a>)}
+        </nav>
+      )}
       <div className="mt-5 grid gap-6">
         {groups.map((g, gi) => (
-          <div key={gi} className="grid gap-3">
+          <div key={gi} id={g.part ? `phan-${gi}` : undefined} className="part-anchor grid gap-3">
             {g.part && <h2 className="section-title justify-self-start uppercase tracking-wide">{partLabel(g.part, meeting.week_from, meeting.week_to)}</h2>}
             {g.items.map(({ s, no }) => (
               <SectionCard

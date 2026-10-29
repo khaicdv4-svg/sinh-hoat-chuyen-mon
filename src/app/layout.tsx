@@ -19,9 +19,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="min-h-screen">
+      <body className="min-h-screen lg:flex">
         <Nav profile={profile} />
-        <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-[88rem] flex-1 px-4 py-5 lg:px-8 lg:py-6">{children}</main>
       </body>
     </html>
   );

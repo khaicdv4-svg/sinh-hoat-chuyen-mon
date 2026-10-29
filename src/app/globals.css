@@ -46,33 +46,83 @@ a { color: inherit; }
 .text-gray-600 { color: color-mix(in srgb, var(--ink) 84%, var(--surface)); }
 .text-gray-700 { color: color-mix(in srgb, var(--ink) 94%, var(--surface)); }
 
-.topbar {
-  position: sticky; top: 0; z-index: 30;
-  background: linear-gradient(180deg, var(--card-hi), var(--surface));
-  box-shadow: 0 6px 16px var(--sh-dark), 0 -1px 0 var(--sh-light) inset;
-  border-bottom: 1px solid color-mix(in srgb, var(--surface) 30%, transparent);
-}
-/* Tiêu đề chính: giữa trang, in hoa, đổ bóng nổi */
-.topbar-title {
-  display: block; text-transform: uppercase; font-weight: 800; letter-spacing: .05em;
-  font-size: clamp(1.35rem, 3.6vw, 2.1rem); line-height: 1.2; padding-top: .2rem; color: var(--brand-dark);
-  text-shadow: 0 2px 0 var(--sh-light), 3px 5px 8px var(--sh-dark);
-}
+/* Tiêu đề: in hoa, đổ bóng nổi */
 .topbar-sub {
-  display: block; margin-top: .2rem; font-size: .8rem; font-weight: 700; letter-spacing: .14em;
+  display: block; margin-top: .2rem; font-size: .75rem; font-weight: 700; letter-spacing: .14em;
   color: var(--muted); text-shadow: 0 1px 0 var(--sh-light);
 }
-
-/* Các mục menu là khối nổi, có màu nền riêng */
-.navblocks { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: .3rem; }
-.navblocks a {
-  padding: .4rem .85rem; border-radius: .8rem; font-weight: 700; font-size: .9rem; white-space: nowrap; color: var(--ink);
-  background: linear-gradient(145deg, var(--card-hi), color-mix(in srgb, var(--brand) 14%, var(--surface)));
-  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
-  box-shadow: var(--raised-sm); transition: transform .12s, box-shadow .12s, background .12s;
+.banner-title {
+  text-transform: uppercase; font-weight: 800; letter-spacing: .05em; text-align: center;
+  font-size: clamp(1.4rem, 4vw, 2.3rem); line-height: 1.2; color: var(--brand-dark);
+  text-shadow: 0 2px 0 var(--sh-light), 3px 5px 8px var(--sh-dark);
 }
-.navblocks a:hover { transform: translateY(-2px); box-shadow: 4px 6px 12px var(--sh-dark), -4px -4px 9px var(--sh-light); }
-.navblocks a:active { transform: translateY(0); box-shadow: var(--inset-sm); }
+.banner-sub { text-align: center; margin-top: .25rem; font-size: .85rem; font-weight: 700; letter-spacing: .16em; color: var(--muted); text-shadow: 0 1px 0 var(--sh-light); }
+
+/* Thanh menu bên trái (máy tính) */
+.sidebar {
+  position: sticky; top: 0; height: 100vh; width: 16rem; flex-shrink: 0; flex-direction: column; overflow-y: auto;
+  padding: 1.2rem 1rem; z-index: 30;
+  background: linear-gradient(180deg, var(--card-hi), var(--surface));
+  box-shadow: 6px 0 16px var(--sh-dark), -1px 0 0 var(--sh-light) inset;
+}
+.sidebar-brand {
+  display: block; text-align: center; text-transform: uppercase; font-weight: 800; letter-spacing: .04em; line-height: 1.2;
+  font-size: 1.3rem; color: var(--brand-dark); text-shadow: 0 2px 0 var(--sh-light), 2px 4px 6px var(--sh-dark);
+}
+.navitem {
+  display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-radius: .8rem;
+  font-weight: 600; font-size: .95rem; color: var(--ink); text-align: left; cursor: pointer;
+  background: linear-gradient(145deg, var(--card-hi), color-mix(in srgb, var(--brand) 10%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent); box-shadow: var(--raised-sm);
+  transition: transform .12s, box-shadow .12s;
+}
+.navitem:hover { transform: translateX(2px); }
+.navitem:active { box-shadow: var(--inset-sm); }
+.navitem-on { color: #fff; background: linear-gradient(145deg, var(--brand-light), var(--brand-dark)); text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+.navitem-sub { font-size: .88rem; padding: .4rem .7rem; }
+.navicon { width: 1.4rem; text-align: center; }
+
+/* Thanh trên cùng (điện thoại, máy tính bảng) */
+.mobilebar {
+  position: sticky; top: 0; z-index: 40; padding: .5rem .8rem;
+  background: linear-gradient(180deg, var(--card-hi), var(--surface)); box-shadow: 0 4px 12px var(--sh-dark);
+}
+.mobilebar-title {
+  flex: 1; min-width: 0; text-transform: uppercase; font-weight: 800; font-size: .95rem; letter-spacing: .03em;
+  color: var(--brand-dark); text-shadow: 0 1px 0 var(--sh-light), 1px 2px 3px var(--sh-dark);
+}
+.mobilemenu { margin-top: .6rem; max-height: calc(100vh - 4.5rem); overflow-y: auto; padding-bottom: .4rem; }
+
+/* Bốn thẻ chức năng ở trang chủ */
+.fn-grid { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) { .fn-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.fn-card {
+  display: flex; align-items: center; gap: .7rem; padding: .7rem .9rem; border-radius: 1rem; font-weight: 700;
+  background: linear-gradient(145deg, var(--card-hi), color-mix(in srgb, var(--brand) 12%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent); box-shadow: var(--raised-sm);
+  transition: transform .12s, box-shadow .12s;
+}
+.fn-card:hover { transform: translateY(-2px); box-shadow: 4px 6px 12px var(--sh-dark), -4px -4px 9px var(--sh-light); }
+.fn-icon {
+  display: grid; place-items: center; width: 2.4rem; height: 2.4rem; flex-shrink: 0; border-radius: .7rem; font-size: 1.2rem;
+  background: var(--brand); box-shadow: var(--raised-sm);
+}
+@media (max-width: 640px) { .fn-card { flex-direction: column; text-align: center; gap: .35rem; padding: .6rem .4rem; font-size: .85rem; } }
+
+/* Thanh chọn mục I, II, III… trong biên bản */
+.partnav {
+  position: sticky; top: 0; z-index: 20; display: flex; gap: .5rem; overflow-x: auto; padding: .5rem .6rem; margin-top: .75rem;
+  border-radius: 1rem; background: linear-gradient(145deg, var(--card-hi), var(--surface)); box-shadow: var(--raised-sm);
+  scrollbar-width: thin;
+}
+@media (max-width: 1023px) { .partnav { top: 3.4rem; } }
+.partnav a {
+  flex-shrink: 0; padding: .35rem .9rem; border-radius: .7rem; font-weight: 700; font-size: .88rem; white-space: nowrap;
+  color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 10%, var(--surface)); box-shadow: var(--raised-sm);
+}
+.partnav a:hover { background: color-mix(in srgb, var(--brand) 22%, var(--surface)); }
+.part-anchor { scroll-margin-top: 8rem; }
+html { scroll-behavior: smooth; }
 
 /* Nút nổi khối */
 .btn {
@@ -145,6 +195,7 @@ select.input { padding-right: 1.6rem; }
 .filepick:focus-within { outline: 3px solid var(--brand-light); outline-offset: 2px; }
 
 /* Bảng chỉnh giao diện */
+.theme-panel-up { position: fixed !important; top: auto !important; right: auto !important; left: 1rem; bottom: 1rem; max-height: 90vh; overflow-y: auto; }
 .theme-panel {
   position: absolute; right: 0; top: calc(100% + .5rem); z-index: 50; width: min(22rem, 92vw);
   padding: 1rem; border-radius: 1rem; background: linear-gradient(145deg, var(--card-hi), var(--surface));
@@ -152,4 +203,4 @@ select.input { padding-right: 1.6rem; }
 }
 .swatch { width: 2.2rem; height: 2.2rem; border-radius: .6rem; border: 2px solid var(--line); padding: 0; cursor: pointer; background: none; }
 
-@media print { .topbar { display: none; } body { background: #fff; } }
+@media print { .sidebar, .mobilebar, .partnav { display: none !important; } body { background: #fff; } }
