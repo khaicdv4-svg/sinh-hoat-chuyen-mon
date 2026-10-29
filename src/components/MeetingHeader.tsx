@@ -92,64 +92,67 @@ export default function MeetingHeader({
     setImporting(false);
   }
 
+  const weekText = meeting.week_from != null ? `Tuần ${meeting.week_from}${meeting.week_to && meeting.week_to !== meeting.week_from ? ` – ${meeting.week_to}` : ""}` : "";
+  const canEdit = leader && !locked;
+
   return (
     <div className="card mt-2 p-4">
-      <div className="flex flex-wrap items-start gap-3">
+      <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wide text-gray-500">{SCHOOL_NAME} · {TEAM_NAME}</p>
-          <h1 className="text-xl font-semibold">{meeting.title}</h1>
+          <p className="truncate text-xs uppercase tracking-wide text-gray-500">{SCHOOL_NAME} · {TEAM_NAME}</p>
+          <h1 className="text-lg font-semibold leading-snug sm:text-xl">{meeting.title}</h1>
           <p className="mt-1 text-sm text-gray-600">
+            {weekText && <b>{weekText}</b>}{weekText ? " · " : ""}
             {meeting.meeting_date ? `${fmtWeekday(meeting.meeting_date)}, ${fmtDate(meeting.meeting_date)}` : "Chưa định ngày"}
             {meeting.meeting_time ? `, ${fmtTime(meeting.meeting_time)}` : ""}
-            {meeting.place ? ` · ${meeting.place}` : ""}
           </p>
+        </div>
+        <span className={`badge shrink-0 ${locked ? "badge-locked" : "badge-open"}`}>{locked ? "Đã khóa" : "Đang mở"}</span>
+      </div>
+
+      <div className="toolbar mt-3 border-t border-[var(--line)] pt-3">
+        <button type="button" className={`btn btn-sm ${panel === "info" ? "btn-primary" : ""}`} aria-expanded={panel === "info"} onClick={() => toggle("info")}>ℹ️ Thông tin buổi họp</button>
+        {canMinutes && <button type="button" className={`btn btn-sm ${panel === "att" ? "btn-primary" : ""}`} onClick={() => toggle("att")}>✅ Điểm danh</button>}
+        {canMinutes && <button type="button" className={`btn btn-sm ${panel === "vote" ? "btn-primary" : ""}`} onClick={() => toggle("vote")}>🗳 Biểu quyết</button>}
+        {canEdit && <button type="button" className={`btn btn-sm btn-accent`} onClick={() => toggle("import")}>📄 Nhập Word</button>}
+        {canEdit && (pendingOpinions ?? 0) > 0 && <span className="badge badge-ai shrink-0 whitespace-nowrap">{pendingOpinions} ý kiến chờ xem</span>}
+        {canEdit && proposals > 0 && (
+          <button type="button" className="btn btn-sm btn-primary" disabled={pending} onClick={() => confirm(`Nhận cả ${proposals} đề xuất vào biên bản?`) && run(() => acceptAllProposals(meeting.id))}>
+            ✔ Nhận {proposals} đề xuất
+          </button>
+        )}
+        {canEdit && templates.length > 0 && (
+          <select className="input !w-auto !py-1 text-sm" defaultValue="" disabled={pending}
+            onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v) run(() => applyTemplate(meeting.id, v)); }}>
+            <option value="">+ Thêm bộ đề mục…</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      {panel === "info" && (
+        <div className="mt-3 grid gap-1 border-t border-[var(--line)] pt-3 text-sm text-gray-700">
+          {meeting.place && <p>Địa điểm: {meeting.place}</p>}
           {meeting.format && (
-            <p className="text-sm text-gray-600">
+            <p>
               Hình thức: <b>{meeting.format === "truc_tuyen" ? "Sinh hoạt trực tuyến" : "Sinh hoạt trực tiếp"}</b>
               {meeting.format === "truc_tuyen" && meeting.online_link && (
                 <> · <a href={meeting.online_link} target="_blank" rel="noreferrer" className="font-semibold text-[var(--brand)] underline">Vào phòng họp{meeting.online_platform ? ` (${meeting.online_platform})` : ""}</a></>
               )}
             </p>
           )}
-          <p className="text-sm text-gray-600">
-            Chủ trì: {chair ? memberName(chair) : "chưa chọn"} · Thư ký: {sec ? memberName(sec) : "chưa phân công"}
-          </p>
-          <p className="text-sm text-gray-600">
+          <p>Chủ trì: {chair ? memberName(chair) : "chưa chọn"} · Thư ký: {sec ? memberName(sec) : "chưa phân công"}</p>
+          <p>
             {attendance.length
               ? `Có mặt ${active.length - absent.length}/${active.length}` + (absent.length ? ` · Vắng: ${absent.map((a) => { const m = byId(a.member_id); return `${m ? memberName(m) : "?"}${a.reason ? ` (${a.reason})` : ""}`; }).join("; ")}` : "")
               : "Chưa điểm danh"}
           </p>
-          {meeting.ncbh_stage && <p className="text-sm text-gray-600">Giai đoạn NCBH: {meeting.ncbh_stage}</p>}
-          {meeting.topic && <p className="text-sm text-gray-600">Nội dung chính: {meeting.topic}</p>}
-          {notes.map((n) => <p key={n.week_no} className="mt-1 text-xs text-amber-800">Tuần {n.week_no}: {n.note}</p>)}
-        </div>
-        <span className={`badge ${locked ? "badge-locked" : "badge-open"}`}>{locked ? "Đã khóa" : "Đang mở"}</span>
-      </div>
-
-      {(leader || canMinutes) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-3">
-          {leader && !locked && <button className="btn btn-sm" onClick={() => toggle("info")}>Thông tin buổi họp</button>}
-          {canMinutes && <button className="btn btn-sm" onClick={() => toggle("att")}>Điểm danh</button>}
-          {canMinutes && <button className="btn btn-sm" onClick={() => toggle("vote")}>Biểu quyết, giờ kết thúc</button>}
-          {leader && !locked && <button className="btn btn-sm btn-accent" onClick={() => toggle("import")}>📄 Nhập từ biên bản Word</button>}
-          {leader && !locked && (pendingOpinions ?? 0) > 0 && (
-            <span className="badge badge-ai">{pendingOpinions} ý kiến chờ xem</span>
-          )}
-          {leader && !locked && proposals > 0 && (
-            <button className="btn btn-sm btn-primary" disabled={pending} onClick={() => confirm(`Nhận cả ${proposals} đề xuất vào biên bản?`) && run(() => acceptAllProposals(meeting.id))}>
-              Nhận tất cả {proposals} đề xuất
-            </button>
-          )}
-          {leader && !locked && templates.length > 0 && (
-            <select className="input !w-auto !py-1 text-sm" defaultValue="" disabled={pending}
-              onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v) run(() => applyTemplate(meeting.id, v)); }}>
-              <option value="">+ Thêm bộ đề mục…</option>
-              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          )}
+          {meeting.ncbh_stage && <p>Giai đoạn NCBH: {meeting.ncbh_stage}</p>}
+          {meeting.topic && <p>Nội dung chính: {meeting.topic}</p>}
+          {notes.map((n) => <p key={n.week_no} className="text-xs text-amber-800">Tuần {n.week_no}: {n.note}</p>)}
         </div>
       )}
-      {panel === "info" && leader && (
+      {panel === "info" && canEdit && (
         <div className="mt-3 grid gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-2">
           <label className="text-sm">Ngày họp<input type="date" className="input mt-1" value={f.meeting_date} onChange={(e) => setF({ ...f, meeting_date: e.target.value })} /></label>
           <label className="text-sm">Giờ bắt đầu<input type="time" className="input mt-1" value={f.meeting_time} onChange={(e) => setF({ ...f, meeting_time: e.target.value })} /></label>
@@ -187,12 +190,12 @@ export default function MeetingHeader({
           <div className="grid gap-2">
             {active.map((m) => (
               <div key={m.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <label className="flex min-w-56 items-center gap-2">
+                <label className="flex min-w-0 items-center gap-2 sm:min-w-56">
                   <input type="checkbox" checked={att[m.id]?.present ?? true} onChange={(e) => setAtt({ ...att, [m.id]: { ...att[m.id], present: e.target.checked } })} />
                   {memberName(m)}
                 </label>
                 {!att[m.id]?.present && (
-                  <input className="input !w-64 !py-1" placeholder="Lí do vắng" value={att[m.id]?.reason ?? ""} onChange={(e) => setAtt({ ...att, [m.id]: { ...att[m.id], reason: e.target.value } })} />
+                  <input className="input !w-full !py-1 sm:!w-64" placeholder="Lí do vắng" value={att[m.id]?.reason ?? ""} onChange={(e) => setAtt({ ...att, [m.id]: { ...att[m.id], reason: e.target.value } })} />
                 )}
               </div>
             ))}

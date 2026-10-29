@@ -53,6 +53,7 @@ export default function NavMenu({ user }: { user: NavUser }) {
           <nav className="mt-5 grid gap-1.5">
             {item("/", "Danh sách biên bản", "📋")}
             {item("/lich-sinh-hoat", "Lịch sinh hoạt", "📅")}
+            {item("/thong-ke", "Thống kê – Báo cáo", "📊")}
             {item("/thong-bao", "Thông báo", "🔔", false, user.unread)}
             {user.leader && item("/bien-ban/moi", "Tạo biên bản mới", "➕")}
             {user.leader && (

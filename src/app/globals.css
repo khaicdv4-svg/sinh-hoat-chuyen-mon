@@ -78,7 +78,14 @@ a { color: inherit; }
   background: linear-gradient(145deg, #2d5a4a, #1d4034); border: 5px solid #c9a46a; box-shadow: var(--raised);
   transform: rotate(-2deg);
 }
-@media (max-width: 640px) { .board { margin: 0 auto; font-size: 1rem; padding: .6rem 1rem; } }
+@media (max-width: 640px) {
+  .hero { padding: .6rem .9rem; gap: .2rem; border-radius: 1.1rem; }
+  .hero-logo { display: none; } /* logo đã có ở thanh trên, không lặp lại */
+  .hero-title { font-size: 1.15rem; }
+  .hero-team { margin-top: 0; font-size: .8rem; letter-spacing: .16em; }
+  .hero-school { margin-top: .3rem; padding: .1rem .7rem; font-size: .65rem; }
+  .board { display: none; }
+}
 
 /* ---------- Thanh menu bên trái (máy tính) ---------- */
 .sidebar {
@@ -135,16 +142,19 @@ a { color: inherit; }
   display: grid; place-items: center; width: 2.6rem; height: 2.6rem; flex-shrink: 0; border-radius: .8rem; font-size: 1.25rem;
   background: var(--icon, var(--brand)); box-shadow: 0 3px 8px var(--sh-dark);
 }
-.fn-title { display: block; font-weight: 700; font-size: .95rem; line-height: 1.25; }
+.fn-title { display: block; font-weight: 700; font-size: .9rem; line-height: 1.2; }
 .fn-sub { display: block; margin-top: .1rem; font-size: .72rem; color: var(--muted); }
 .fn-go {
   position: absolute; right: .7rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 1.6rem; height: 1.6rem;
   border-radius: 999px; font-size: .8rem; color: #fff; background: var(--icon, var(--brand));
 }
+.fn-card { padding: .55rem .8rem; gap: .6rem; }
+.fn-icon { width: 2.2rem; height: 2.2rem; font-size: 1.05rem; border-radius: .7rem; }
 @media (max-width: 640px) {
-  .fn-sub, .fn-go { display: none; }
-  .fn-card { flex-direction: column; text-align: center; gap: .35rem; padding: .7rem .4rem; }
-  .fn-title { font-size: .85rem; }
+  .fn-grid { gap: .5rem; }
+  .fn-card { padding: .45rem .55rem; gap: .45rem; border-radius: .9rem; }
+  .fn-icon { width: 1.9rem; height: 1.9rem; font-size: .95rem; }
+  .fn-title { font-size: .78rem; }
 }
 
 /* ---------- Danh sách biên bản ---------- */
@@ -170,7 +180,14 @@ a { color: inherit; }
   color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 9%, var(--surface));
 }
 .partnav a:hover { background: color-mix(in srgb, var(--brand) 20%, var(--surface)); }
-.part-anchor { scroll-margin-top: 8rem; }
+.part-anchor { scroll-margin-top: 8rem; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.part-anchor > * { min-width: 0; }
+.section-title { max-width: 100%; overflow-wrap: anywhere; }
+
+/* Thanh chức năng của biên bản: một hàng, cuộn ngang trong chính nó, không làm rộng trang */
+.toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: .5rem; overflow-x: auto; max-width: 100%; padding-bottom: .25rem; scrollbar-width: thin; }
+.toolbar > * { flex-shrink: 0; white-space: nowrap; }
+@media (min-width: 1024px) { .toolbar { flex-wrap: wrap; overflow-x: visible; } }
 html { scroll-behavior: smooth; }
 
 /* ---------- Nút ---------- */

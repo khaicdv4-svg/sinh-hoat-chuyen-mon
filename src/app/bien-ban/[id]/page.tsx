@@ -1,14 +1,9 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { BUCKET } from "@/lib/constants";
-import { groupByPart, partLabel } from "@/lib/format";
 import type { Attendance, CalendarWeek, Entry, FileRow, Meeting, Member, Profile, Section, Template } from "@/lib/types";
-import MeetingHeader from "@/components/MeetingHeader";
-import SectionCard from "@/components/SectionCard";
-import ExportBar from "@/components/ExportBar";
-import AiAssistant from "@/components/AiAssistant";
+import MeetingView from "@/components/MeetingView";
 import { loadAiSettings } from "@/lib/ai-config";
 
 export const dynamic = "force-dynamic";
@@ -61,69 +56,15 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
   const templates = ((tplRes.data ?? []) as Template[]).filter((t) => t.key !== "khung_sh");
   const proposals = entries.filter((e) => e.status === "proposed").length;
   const pendingOpinions = entries.filter((e) => e.status === "pending").length;
-  const groups = groupByPart(sections);
-  // Thanh chọn mục tạo từ chính các phần của biên bản (I, II, III…; A, B, C…)
-  const navParts = groups
-    .map((g, gi) => ({ g, gi }))
-    .filter(({ g }) => g.part)
-    .map(({ g, gi }) => {
-      const label = partLabel(g.part, meeting.week_from, meeting.week_to);
-      const m = label.match(/^([IVXLC]+|[A-Z])\.\s*(.*)$/);
-      return { id: `phan-${gi}`, label, short: m ? `${m[1]}. ${m[2].split(/\s+/).slice(0, 3).join(" ").toLowerCase().replace(/^./, (c) => c.toUpperCase())}…` : label };
-    });
   const aiSettings = leader && !locked ? await loadAiSettings() : null;
 
   return (
-    <div>
-      <Link href="/" className="text-sm text-gray-500 hover:underline">
-        ← Danh sách biên bản
-      </Link>
-      <MeetingHeader
-        meeting={meeting}
-        members={members}
-        attendance={(attRes.data ?? []) as Attendance[]}
-        calendar={(calRes.data ?? []) as CalendarWeek[]}
-        leader={leader}
-        secretary={secretary}
-        templates={templates}
-        proposals={proposals}
-        pendingOpinions={pendingOpinions}
-        me={me.id}
-      />
-      {aiSettings && (
-        <AiAssistant meetingId={id} models={aiSettings.models.map((m) => ({ id: m.id, label: m.label }))} defaultModelId={aiSettings.defaultId} />
-      )}
-      {navParts.length > 1 && (
-        <nav className="partnav print:hidden" aria-label="Các mục của biên bản">
-          {navParts.map((n) => <a key={n.id} href={`#${n.id}`} title={n.label}>{n.short}</a>)}
-        </nav>
-      )}
-      <div className="mt-5 grid gap-6">
-        {groups.map((g, gi) => (
-          <div key={gi} id={g.part ? `phan-${gi}` : undefined} className="part-anchor grid gap-3">
-            {g.part && <h2 className="section-title justify-self-start uppercase tracking-wide">{partLabel(g.part, meeting.week_from, meeting.week_to)}</h2>}
-            {g.items.map(({ s, no }) => (
-              <SectionCard
-                key={s.id}
-                no={g.part && s.layout !== "list" && no > 0 ? no : null}
-                section={s}
-                entries={entries.filter((e) => e.section_id === s.id)}
-                files={files.filter((f) => f.section_id === s.id)}
-                urls={urls}
-                profiles={profiles}
-                members={members}
-                myMember={myMember}
-                me={me}
-                secretary={secretary}
-                locked={locked}
-                meetingId={id}
-              />
-            ))}
-          </div>
-        ))}
-        {!sections.length && <p className="text-sm text-gray-500">Biên bản chưa có đề mục nào.</p>}
-      </div>
-      {leader && <ExportBar meetingId={id} locked={locked} />}
-    </div>
+    <MeetingView
+      id={id} meeting={meeting} sections={sections} entries={entries} files={files} urls={urls} profiles={profiles} members={members}
+      attendance={(attRes.data ?? []) as Attendance[]} calendar={(calRes.data ?? []) as CalendarWeek[]} templates={templates}
+      me={me} myMember={myMember} leader={leader} secretary={secretary} locked={locked}
+      proposals={proposals} pendingOpinions={pendingOpinions}
+      models={aiSettings ? aiSettings.models.map((m) => ({ id: m.id, label: m.label })) : null} defaultModelId={aiSettings?.defaultId ?? ""}
+    />
   );
 }
