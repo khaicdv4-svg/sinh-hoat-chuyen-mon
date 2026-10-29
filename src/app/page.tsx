@@ -14,6 +14,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const meetings = (data ?? []) as Meeting[];
   const today = todayVN();
   const next = meetings.find((m) => m.status === "open" && m.meeting_date && m.meeting_date >= today);
+  const { data: notes } = await supabase.from("shcm_notifications").select("id, title, body, created_at").is("read_at", null).order("created_at", { ascending: false }).limit(3);
   const regular = meetings.filter((m) => m.kind === "sinh_hoat");
   const other = meetings.filter((m) => m.kind !== "sinh_hoat");
 
@@ -65,12 +66,25 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             <span className="fn-go" aria-hidden>›</span>
           </Link>
         )}
+        <Link href="/lich-sinh-hoat" className="fn-card" style={{ ["--tint" as string]: "var(--tint-purple)", ["--icon" as string]: "#7a54d6" }}>
+          <span className="fn-icon" aria-hidden>📅</span>
+          <span className="min-w-0"><span className="fn-title">Lịch sinh hoạt</span><span className="fn-sub">Trực tiếp – Trực tuyến</span></span>
+          <span className="fn-go" aria-hidden>›</span>
+        </Link>
         <a href="#danh-sach" className="fn-card" style={{ ["--tint" as string]: "var(--tint-blue)", ["--icon" as string]: "#2f7de1" }}>
           <span className="fn-icon" aria-hidden>👥</span>
           <span className="min-w-0"><span className="fn-title">Danh sách biên bản</span><span className="fn-sub">Xem, mở biên bản</span></span>
           <span className="fn-go" aria-hidden>›</span>
         </a>
       </div>
+
+      {(notes ?? []).length > 0 && (
+        <Link href="/thong-bao" className="mt-4 block rounded-2xl border border-[#f3d9a4] bg-[var(--tint-orange)] px-4 py-3 shadow-[var(--raised-sm)]">
+          <p className="font-bold">🔔 Thông báo mới</p>
+          {(notes ?? []).map((n) => <p key={n.id} className="text-sm">• {n.title}</p>)}
+          <p className="mt-1 text-xs text-gray-600">Bấm để xem chi tiết</p>
+        </Link>
+      )}
 
       {next && (
         <div className="mt-4 rounded-2xl bg-[var(--brand)] px-4 py-3 text-white shadow-[var(--raised-sm)]">

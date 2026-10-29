@@ -18,3 +18,9 @@ File tạo bảng: `supabase/migrations/001_shcm_init.sql` (đã chạy, không 
 - Danh sách thành viên tổ (trang Thành viên), điểm danh, chủ trì, thư ký; thư ký ghi ý kiến thay thành viên.
 - Biên bản theo khung A. Thành phần – B. Nội dung (I–IV) – C. Biểu quyết và kết luận; xuất Word đúng bố cục mẫu.
 - Nhập nội dung từ biên bản Word/PDF đã soạn: AI chia vào các mục, gắn đúng người nói, ở dạng đề xuất chờ tổ trưởng nhận.
+
+## Lịch sinh hoạt, thông báo, biểu mẫu (migration 007, đã chạy)
+- Trang Lịch sinh hoạt: tổ trưởng chọn hình thức họp (trực tiếp / trực tuyến, kèm nền tảng và đường dẫn), bấm "Lưu và gửi thông báo".
+- Thông báo trong ứng dụng (chuông ở menu, bảng `shcm_notifications`). Cần `SUPABASE_SERVICE_ROLE_KEY` trên máy chủ để tạo thông báo.
+- Gửi thêm thư điện tử là tùy chọn: đặt `RESEND_API_KEY` và `MAIL_FROM` trên Vercel. Không đặt thì chỉ có thông báo trong ứng dụng.
+- Tư liệu › Mẫu biểu: tệp tải lên được AI đọc mỗi lần soạn biên bản (học bố cục, giọng văn, không chép nội dung cũ).

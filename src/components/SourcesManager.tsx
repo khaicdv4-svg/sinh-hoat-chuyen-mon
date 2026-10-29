@@ -7,7 +7,7 @@ import { fmtDateTime, fmtSize, safeFileName } from "@/lib/format";
 import { addTextSource, deleteSource, saveSkill, setSourceEnabled } from "@/app/nguon-tu-lieu/actions";
 
 export type SourceRow = {
-  id: string; kind: "ke_hoach" | "van_ban" | "lich"; title: string; url: string | null; note: string | null;
+  id: string; kind: "ke_hoach" | "van_ban" | "lich" | "mau_bieu"; title: string; url: string | null; note: string | null;
   file_name: string | null; size_bytes: number | null; enabled: boolean; created_at: string; chars: number;
 };
 
@@ -27,9 +27,15 @@ const KINDS: { kind: SourceRow["kind"]; title: string; hint: string; accept: str
     hint: "Lịch công tác, lịch Google Calendar (xuất file .ics rồi tải lên), liên kết thư mục Drive.",
     accept: ".ics,.docx,.pdf,.txt,.csv,.md", addHint: "Tải file .ics/.csv/.docx hoặc thêm liên kết Drive kèm ghi chú.",
   },
+  {
+    kind: "mau_bieu", title: "Biểu mẫu",
+    hint: "Biên bản mẫu, mẫu trình bày của trường, của tổ. Mỗi lần soạn biên bản, AI xem các mẫu đang bật để viết đúng bố cục, cách xưng hô và giọng văn. AI không chép lại nội dung cũ trong mẫu.",
+    accept: ".docx,.pdf,.txt,.md", addHint: "Tải biên bản mẫu (Word, PDF) hoặc dán nội dung mẫu vào ô ghi chú.",
+  },
 ];
 
-export default function SourcesManager({ rows, me, skill }: { rows: SourceRow[]; me: string; skill: string }) {
+export default function SourcesManager({ rows, me, skill, only, showSkill = true }: { rows: SourceRow[]; me: string; skill: string; only?: SourceRow["kind"][]; showSkill?: boolean }) {
+  const kinds = only ? KINDS.filter((k) => only.includes(k.kind)) : KINDS;
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState("");
@@ -78,8 +84,8 @@ export default function SourcesManager({ rows, me, skill }: { rows: SourceRow[];
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 lg:grid-cols-3">
-        {KINDS.map((k) => {
+      <div className={`grid gap-4 ${kinds.length > 1 ? "lg:grid-cols-3" : "max-w-2xl"}`}>
+        {kinds.map((k) => {
           const list = rows.filter((r) => r.kind === k.kind);
           return (
             <section key={k.kind} className="card flex flex-col p-4">
@@ -137,7 +143,7 @@ export default function SourcesManager({ rows, me, skill }: { rows: SourceRow[];
       </div>
       {msg && <p className="text-sm text-red-700">{msg}</p>}
 
-      <section className="card p-4">
+      {showSkill && <section className="card p-4">
         <h2 className="font-bold text-[var(--brand-dark)]">Kỹ năng viết cho AI</h2>
         <p className="mt-1 text-sm text-gray-600">
           Hướng dẫn cách viết biên bản, giọng văn, cấu trúc từng mục. AI làm theo nội dung này mỗi lần soạn. Thầy dán nội dung hoặc nạp tệp .md/.txt.
@@ -152,7 +158,7 @@ export default function SourcesManager({ rows, me, skill }: { rows: SourceRow[];
           <span className="text-xs text-gray-500">{skillText.length.toLocaleString("vi-VN")}/30.000 ký tự</span>
           {skillMsg && <span className="text-sm text-green-800">{skillMsg}</span>}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

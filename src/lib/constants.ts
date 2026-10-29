@@ -41,3 +41,9 @@ export const AI_ACTION_LABELS: Record<string, string> = {
 
 export const DEFAULT_AI_DAILY_LIMIT_TEACHER = 30;
 export const DEFAULT_AI_DAILY_LIMIT_LEADER = 150;
+
+export const FORMAT_LABELS: Record<string, string> = {
+  truc_tiep: "Sinh hoạt trực tiếp",
+  truc_tuyen: "Sinh hoạt trực tuyến",
+};
+export const PLATFORMS = ["Google Meet", "Zoom", "Microsoft Teams", "Khác"];

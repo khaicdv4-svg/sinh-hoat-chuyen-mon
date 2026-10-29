@@ -2,7 +2,7 @@ import type { Profile } from "@/lib/types";
 import { ROLE_LABELS, TEAM_NAME } from "@/lib/constants";
 import NavMenu from "./NavMenu";
 
-export default function Nav({ profile }: { profile: Profile | null }) {
+export default function Nav({ profile, unread = 0 }: { profile: Profile | null; unread?: number }) {
   if (!profile) return null;
   const approved = profile.status === "approved";
   return (
@@ -14,6 +14,7 @@ export default function Nav({ profile }: { profile: Profile | null }) {
         name: profile.full_name || profile.email,
         roleLabel: ROLE_LABELS[profile.role],
         team: TEAM_NAME,
+        unread,
       }}
     />
   );

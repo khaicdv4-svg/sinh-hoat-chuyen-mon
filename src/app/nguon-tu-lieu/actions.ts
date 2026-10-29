@@ -18,6 +18,7 @@ export async function addTextSource(kind: string, title: string, url: string, no
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/nguon-tu-lieu");
+  revalidatePath("/mau-bieu");
   return { ok: true };
 }
 
@@ -27,6 +28,7 @@ export async function setSourceEnabled(id: string, enabled: boolean): Promise<R>
   const { error } = await supabase.from("shcm_sources").update({ enabled }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/nguon-tu-lieu");
+  revalidatePath("/mau-bieu");
   return { ok: true };
 }
 
@@ -38,6 +40,7 @@ export async function deleteSource(id: string): Promise<R> {
   if (error) return { ok: false, error: error.message };
   if (src?.storage_path) await supabase.storage.from(BUCKET).remove([src.storage_path]);
   revalidatePath("/nguon-tu-lieu");
+  revalidatePath("/mau-bieu");
   return { ok: true };
 }
 
@@ -48,5 +51,6 @@ export async function saveSkill(text: string): Promise<R> {
   const { error } = await db.from("shcm_settings").upsert({ key: "ai_skill", value: text.slice(0, 30000) }, { onConflict: "key" });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/nguon-tu-lieu");
+  revalidatePath("/mau-bieu");
   return { ok: true };
 }

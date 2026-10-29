@@ -1,6 +1,7 @@
 import { aiGuard, askTool, errorResponse, SYSTEM_BASE, withSkill, AiError } from "@/lib/ai";
 import { buildContext } from "@/lib/ai-context";
-import { loadSourcesText } from "@/lib/ai-sources";
+import { FORMS_RULE, loadFormsText, loadSourcesText } from "@/lib/ai-sources";
+import { FORMAT_LABELS } from "@/lib/constants";
 import { fmtDate, fmtTime, fmtWeekday, memberName, partLabel, todayVN } from "@/lib/format";
 
 export const maxDuration = 300;
@@ -73,11 +74,15 @@ export async function POST(req: Request) {
       meeting.meeting_date
         ? `Buổi sinh hoạt: ${fmtWeekday(meeting.meeting_date)} ${fmtDate(meeting.meeting_date)}${meeting.meeting_time ? `, ${fmtTime(meeting.meeting_time)}` : ""}${meeting.place ? `, tại ${meeting.place}` : ""}. Buổi họp này ${when}.`
         : "Buổi họp chưa có ngày.",
+      meeting.format
+        ? `Hình thức họp: ${FORMAT_LABELS[meeting.format]}${meeting.format === "truc_tuyen" ? ` qua ${meeting.online_platform || "nền tảng trực tuyến"}` : ""}.`
+        : "",
       (att ?? []).length ? `Điểm danh: có mặt ${members.length - absent.length}/${members.length}${absent.length ? `; vắng: ${absent.join("; ")}` : ""}.` : "Chưa điểm danh.",
     ].filter(Boolean).join("\n");
 
     const ctx = await buildContext(g, { meetingId, entries: "all", maxChars: 14000 });
     const sources = await loadSourcesText(g, 40000);
+    const forms = await loadFormsText(g);
 
     const sectionList = targets
       .map((s) => {
@@ -91,11 +96,12 @@ export async function POST(req: Request) {
     const out = await askTool<Out>(
       g, "tro_ly_bien_ban",
       withSkill(g, `${SYSTEM_BASE}
+${FORMS_RULE}
 Bạn là trợ lý viết biên bản cho tổ trưởng. Tổ trưởng yêu cầu, bạn soạn nội dung vào các mục của biên bản.
 
 Cách làm việc:
 - Tự xác định thời điểm từ [Thời điểm hiện tại]. Buổi họp đã diễn ra thì ghi như việc đã làm. Buổi họp chưa diễn ra thì chỉ soạn phần chuẩn bị: chương trình, nhiệm vụ, văn bản cần triển khai, dự kiến. Tuyệt đối không viết như thể buổi họp đã xảy ra.
-- Lấy thông tin từ [Bối cảnh buổi họp] và [Nguồn tư liệu của tổ] (kế hoạch, văn bản, lịch, Drive). Chỉ dùng điều có trong đó. Thiếu thì không viết, đưa vào "thieu" để tổ trưởng bổ sung.
+- Lấy thông tin từ [Bối cảnh buổi họp] và [Nguồn tư liệu của tổ] (kế hoạch, văn bản, lịch, Drive). [Biểu mẫu của tổ] chỉ để học cách trình bày và giọng văn. Chỉ dùng điều có trong đó. Thiếu thì không viết, đưa vào "thieu" để tổ trưởng bổ sung.
 - Mục ghi ý kiến của từng thành viên: không bịa lời của ai. Chỉ viết khi ý kiến đã có sẵn trong dữ liệu. Nếu không có thì bỏ qua mục đó và nêu vào "thieu".
 - Không lặp lại điều đã ghi ở mục khác. Mục đã có nội dung thì chỉ bổ sung điều còn thiếu, không viết lại.
 
@@ -107,7 +113,7 @@ Cách viết:
 - Mỗi mục thường 2 đến 6 dòng. Chỉ viết mục có căn cứ; mục không có gì để viết thì không đưa vào kết quả.`),
       [{
         type: "text",
-        text: `[Thời điểm hiện tại]\n${timeBlock}\n\n[Bối cảnh buổi họp]\n${ctx}\n\n[Nguồn tư liệu của tổ]\n${sources || "(chưa có nguồn nào được bật)"}\n\n[Các mục có thể viết]\n${sectionList}\n\n[Yêu cầu của tổ trưởng]\n${request}`,
+        text: `[Thời điểm hiện tại]\n${timeBlock}\n\n[Bối cảnh buổi họp]\n${ctx}\n\n[Nguồn tư liệu của tổ]\n${sources || "(chưa có nguồn nào được bật)"}\n\n[Biểu mẫu của tổ]\n${forms || "(chưa có biểu mẫu nào được bật)"}\n\n[Các mục có thể viết]\n${sectionList}\n\n[Yêu cầu của tổ trưởng]\n${request}`,
       }],
       {
         name: "soan_bien_ban",

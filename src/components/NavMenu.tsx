@@ -7,13 +7,14 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import Logo from "./Logo";
 
 export type NavUser = {
-  approved: boolean; leader: boolean; admin: boolean; name: string; roleLabel: string; team: string;
+  approved: boolean; leader: boolean; admin: boolean; name: string; roleLabel: string; team: string; unread: number;
 };
 
 const TU_LIEU = [
   { href: "/ke-hoach", label: "Kế hoạch năm", icon: "🗓️" },
   { href: "/van-ban-moi", label: "Văn bản", icon: "📄" },
   { href: "/nguon-tu-lieu", label: "Nguồn tư liệu", icon: "📚" },
+  { href: "/mau-bieu", label: "Mẫu biểu", icon: "📝" },
 ];
 
 export default function NavMenu({ user }: { user: NavUser }) {
@@ -26,9 +27,10 @@ export default function NavMenu({ user }: { user: NavUser }) {
   useEffect(() => { setSheet(false); setAcct(false); if (inTuLieu) setTuLieu(true); }, [path, inTuLieu]);
 
   const on = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
-  const item = (href: string, label: string, icon: string, sub = false) => (
+  const item = (href: string, label: string, icon: string, sub = false, badge = 0) => (
     <Link key={href} href={href} className={`navitem ${sub ? "navitem-sub" : ""} ${on(href) ? "navitem-on" : ""}`}>
       <span aria-hidden className="navicon">{icon}</span>{label}
+      {badge > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#e5484d] px-1 text-[11px] font-bold text-white">{badge}</span>}
     </Link>
   );
 
@@ -50,6 +52,8 @@ export default function NavMenu({ user }: { user: NavUser }) {
         {user.approved && (
           <nav className="mt-5 grid gap-1.5">
             {item("/", "Danh sách biên bản", "📋")}
+            {item("/lich-sinh-hoat", "Lịch sinh hoạt", "📅")}
+            {item("/thong-bao", "Thông báo", "🔔", false, user.unread)}
             {user.leader && item("/bien-ban/moi", "Tạo biên bản mới", "➕")}
             {user.leader && (
               <div className={tuLieu ? "navgroup" : ""}>
@@ -76,9 +80,19 @@ export default function NavMenu({ user }: { user: NavUser }) {
         <div className="flex items-center gap-2">
           <Link href="/" className="mobilebar-title"><Logo size={30} /><span>Sinh hoạt chuyên môn</span></Link>
           <ThemeSwitcher />
+          {user.approved && (
+            <Link href="/thong-bao" className="btn btn-sm relative" aria-label="Thông báo">
+              🔔{user.unread > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#e5484d] px-1 text-[10px] font-bold text-white">{user.unread}</span>}
+            </Link>
+          )}
           <button type="button" className="btn btn-sm" aria-expanded={acct} aria-label="Tài khoản" onClick={() => setAcct(!acct)}>👤</button>
         </div>
-        {acct && <div className="mobilemenu">{account}</div>}
+        {acct && (
+          <div className="mobilemenu grid gap-3">
+            {user.admin && item("/thanh-vien", "Thành viên", "👥")}
+            {account}
+          </div>
+        )}
       </header>
 
       {user.approved && (
@@ -91,13 +105,13 @@ export default function NavMenu({ user }: { user: NavUser }) {
           )}
           <nav className="bottombar print:hidden lg:hidden" aria-label="Menu chính">
             <Link href="/" className={on("/") ? "on" : ""}><span className="ico" aria-hidden>📋</span>Biên bản</Link>
+            <Link href="/lich-sinh-hoat" className={on("/lich-sinh-hoat") ? "on" : ""}><span className="ico" aria-hidden>📅</span>Lịch</Link>
             {user.leader && <Link href="/bien-ban/moi" className={on("/bien-ban/moi") ? "on" : ""}><span className="ico" aria-hidden>➕</span>Tạo mới</Link>}
             {user.leader && (
               <button type="button" className={inTuLieu || sheet ? "on" : ""} aria-expanded={sheet} onClick={() => setSheet(!sheet)}>
                 <span className="ico" aria-hidden>📁</span>Tư liệu
               </button>
             )}
-            {user.admin && <Link href="/thanh-vien" className={on("/thanh-vien") ? "on" : ""}><span className="ico" aria-hidden>👥</span>Thành viên</Link>}
             <Link href="/ho-so" className={on("/ho-so") ? "on" : ""}><span className="ico" aria-hidden>🙍</span>Hồ sơ</Link>
           </nav>
         </>

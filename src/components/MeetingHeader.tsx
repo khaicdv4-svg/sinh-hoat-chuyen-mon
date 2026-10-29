@@ -103,6 +103,14 @@ export default function MeetingHeader({
             {meeting.meeting_time ? `, ${fmtTime(meeting.meeting_time)}` : ""}
             {meeting.place ? ` · ${meeting.place}` : ""}
           </p>
+          {meeting.format && (
+            <p className="text-sm text-gray-600">
+              Hình thức: <b>{meeting.format === "truc_tuyen" ? "Sinh hoạt trực tuyến" : "Sinh hoạt trực tiếp"}</b>
+              {meeting.format === "truc_tuyen" && meeting.online_link && (
+                <> · <a href={meeting.online_link} target="_blank" rel="noreferrer" className="font-semibold text-[var(--brand)] underline">Vào phòng họp{meeting.online_platform ? ` (${meeting.online_platform})` : ""}</a></>
+              )}
+            </p>
+          )}
           <p className="text-sm text-gray-600">
             Chủ trì: {chair ? memberName(chair) : "chưa chọn"} · Thư ký: {sec ? memberName(sec) : "chưa phân công"}
           </p>

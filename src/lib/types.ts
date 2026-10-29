@@ -35,6 +35,10 @@ export interface Meeting {
   vote_total: number | null;
   vote_other: string | null;
   ncbh_stage: string | null;
+  format: "truc_tiep" | "truc_tuyen" | null;
+  online_platform: string | null;
+  online_link: string | null;
+  format_notified_at: string | null;
 }
 
 export interface Member {
@@ -137,4 +141,15 @@ export interface Template {
   description: string | null;
   sections: TemplateSection[];
   is_system: boolean;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  meeting_id: string | null;
+  kind: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  read_at: string | null;
 }

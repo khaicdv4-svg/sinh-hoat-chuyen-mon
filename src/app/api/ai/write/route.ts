@@ -1,6 +1,6 @@
 import { aiGuard, askText, errorResponse, fileToBlocks, SYSTEM_BASE, withSkill, AiError, type Block } from "@/lib/ai";
 import { buildContext } from "@/lib/ai-context";
-import { loadSourcesText } from "@/lib/ai-sources";
+import { FORMS_RULE, loadFormsText, loadSourcesText } from "@/lib/ai-sources";
 
 export const maxDuration = 120;
 
@@ -27,14 +27,16 @@ export async function POST(req: Request) {
 
     if (mode === "write") {
       const sources = await loadSourcesText(g);
+      const forms = await loadFormsText(g, 12000);
       const note = instruction?.trim() ? `\nYêu cầu của tổ trưởng: ${instruction.trim().slice(0, 1500)}` : "";
       const content: Block[] = [{
         type: "text",
-        text: `[Bối cảnh buổi họp]\n${ctx}\n\n${sources ? `[Nguồn tư liệu của tổ]\n${sources}\n\n` : "[Nguồn tư liệu của tổ]\n(chưa có nguồn nào được bật)\n\n"}${target}${note}`,
+        text: `[Bối cảnh buổi họp]\n${ctx}\n\n${sources ? `[Nguồn tư liệu của tổ]\n${sources}\n\n` : "[Nguồn tư liệu của tổ]\n(chưa có nguồn nào được bật)\n\n"}${forms ? `[Biểu mẫu của tổ]\n${forms}\n\n` : ""}${target}${note}`,
       }];
       out = await askText(
         g, "viet_noi_dung",
         withSkill(g, `${SYSTEM_BASE}
+${FORMS_RULE}
 Nhiệm vụ: viết nội dung cho đúng mục được nêu của biên bản, như tổ trưởng ghi lại.
 - Dựa vào [Bối cảnh buổi họp] và [Nguồn tư liệu của tổ]. Điều gì không có trong dữ liệu thì không viết, hoặc ghi rõ "chưa có" để tổ trưởng bổ sung.
 - Không lặp lại những gì đã ghi ở các mục khác. Không viết tên mục ở đầu. Không lời dẫn, không giải thích.
