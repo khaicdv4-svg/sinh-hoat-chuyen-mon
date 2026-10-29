@@ -39,15 +39,15 @@ export default function ScheduleCard({ m, leader, isNext }: { m: Meeting; leader
 
   return (
     <article className="listcard !p-4">
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--brand)] text-center text-white shadow-[var(--raised-sm)]">
+      <div className="grid grid-cols-[3.6rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:grid-cols-[4rem_minmax(0,1fr)_auto] sm:gap-x-4">
+        <div className="grid h-[3.6rem] w-[3.6rem] shrink-0 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-[var(--brand)] text-center text-white shadow-[var(--raised-sm)]">
           {m.meeting_date ? (
-            <span className="leading-tight"><span className="block text-2xl font-extrabold">{d}</span><span className="block text-xs">Th{Number(mo)}/{y.slice(2)}</span></span>
+            <span className="leading-tight"><span className="block text-xl font-extrabold sm:text-2xl">{d}</span><span className="block text-xs">Th{Number(mo)}/{y.slice(2)}</span></span>
           ) : <span className="text-xs">Chưa có ngày</span>}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/bien-ban/${m.id}`} className="font-bold hover:underline">{m.title}</Link>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Link href={`/bien-ban/${m.id}`} className="font-bold leading-snug hover:underline">{m.title}</Link>
             {isNext && <span className="pill badge-warn">Sắp họp</span>}
             {locked && <span className="pill badge-locked">Đã khóa</span>}
           </div>
@@ -59,7 +59,7 @@ export default function ScheduleCard({ m, leader, isNext }: { m: Meeting; leader
               <span className={`pill ${m.format === "truc_tuyen" ? "bg-[var(--tint-purple)] text-[#5b3bb4]" : "bg-[var(--tint-green)] text-[#14653f]"}`}>
                 {m.format === "truc_tuyen" ? "💻" : "🏢"} {FORMAT_LABELS[m.format]}
               </span>
-            ) : <span className="pill bg-[var(--tint-orange)] text-[#9a5a0a]">Chưa chọn hình thức họp</span>}
+            ) : <span className="pill whitespace-nowrap bg-[var(--tint-orange)] text-[#9a5a0a]">Chưa chọn hình thức</span>}
             {m.format === "truc_tiep" && m.place && <span className="text-gray-600">Tại {m.place}</span>}
             {m.format === "truc_tuyen" && m.online_link && (
               <a href={m.online_link} target="_blank" rel="noreferrer" className="font-semibold text-[var(--brand)] underline">Vào phòng họp{m.online_platform ? ` (${m.online_platform})` : ""}</a>
@@ -68,7 +68,7 @@ export default function ScheduleCard({ m, leader, isNext }: { m: Meeting; leader
           {m.format_notified_at && <p className="mt-1 text-xs text-gray-500">Đã thông báo cho thành viên lúc {fmtDateTime(m.format_notified_at)}</p>}
         </div>
         {leader && !locked && (
-          <button type="button" className="btn btn-sm btn-accent" onClick={() => setOpen(!open)}>{open ? "Đóng" : m.format ? "Đổi hình thức" : "Chọn hình thức họp"}</button>
+          <button type="button" className="btn btn-sm btn-accent col-span-2 w-full justify-center sm:col-span-1 sm:w-auto" onClick={() => setOpen(!open)}>{open ? "Đóng" : m.format ? "Đổi hình thức" : "Chọn hình thức họp"}</button>
         )}
       </div>
 
