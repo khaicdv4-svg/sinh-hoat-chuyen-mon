@@ -166,7 +166,7 @@ export default function SectionCard({
   const isDocx = (f: FileX) => f.file_name.toLowerCase().endsWith(".docx");
 
   const speakerSelect = (value: string, onChange: (v: string) => void) => (
-    <select className="input !w-auto !py-1 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="input !w-auto max-w-full !py-1 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">Nội dung chung (không ghi tên)</option>
       {activeMembers.map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
     </select>
@@ -178,7 +178,7 @@ export default function SectionCard({
         <div className="min-w-0 flex-1">
           {renaming ? (
             <div className="flex flex-wrap gap-2">
-              <input className="input !w-auto min-w-72 flex-1" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className="input !w-auto min-w-0 flex-1 sm:min-w-72" value={title} onChange={(e) => setTitle(e.target.value)} />
               <button className="btn btn-primary btn-sm" disabled={pending} onClick={() => run(() => renameSection(section.id, title, section.hint), () => setRenaming(false))}>Lưu</button>
               <button className="btn btn-sm" onClick={() => { setRenaming(false); setTitle(section.title); }}>Hủy</button>
             </div>
@@ -198,7 +198,7 @@ export default function SectionCard({
         {leader && !locked && (
           <div className="flex items-center gap-2">
             {needsAssignee && (
-              <select className="input !w-auto !py-1 text-sm" value={section.assignee_id ?? ""} disabled={pending}
+              <select className="input !w-auto max-w-full !py-1 text-sm" value={section.assignee_id ?? ""} disabled={pending}
                 onChange={(e) => run(() => setAssignee(section.id, e.target.value || null))}>
                 <option value="">Chưa phân công</option>
                 {profiles.filter((m) => m.role === "giao_vien" || m.role === "to_truong").map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
@@ -459,7 +459,7 @@ export default function SectionCard({
               {recorder && (
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
                   Người phát biểu:
-                  <select className="input !w-auto !py-1 text-sm" value={oSpeaker} onChange={(e) => setOSpeaker(e.target.value)}>
+                  <select className="input !w-auto max-w-full !py-1 text-sm" value={oSpeaker} onChange={(e) => setOSpeaker(e.target.value)}>
                     <option value="">Không ghi tên</option>
                     {activeMembers.map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
                   </select>

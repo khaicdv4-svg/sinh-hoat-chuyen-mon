@@ -16,6 +16,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
   const [modelId, setModelId] = useState(defaultModelId);
   const [text, setText] = useState("");
   const [scope, setScope] = useState<"empty" | "all">("empty");
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState<{ sections: number; lines: number; missing: string[] } | null>(null);
@@ -36,17 +37,19 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
   }
 
   return (
-    <section className="card mt-4 border-l-4 !border-l-[var(--brand)] p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold">🤖 Trợ lý AI viết biên bản</h2>
-        <span className="badge badge-ai">Chỉ tổ trưởng</span>
-        <label className="ml-auto flex items-center gap-2 text-sm">
-          Mô hình AI
-          <select className="input !w-auto !py-1" value={modelId} onChange={(e) => setModelId(e.target.value)} disabled={busy}>
-            {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-        </label>
-      </div>
+    <section className="card mt-3 border-l-4 !border-l-[var(--brand)] p-3 sm:p-4">
+      <button type="button" className="flex w-full min-w-0 items-center gap-2 text-left" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <h2 className="min-w-0 flex-1 truncate text-base font-semibold sm:text-lg">🤖 Trợ lý AI viết biên bản</h2>
+        <span className="badge badge-ai shrink-0">Chỉ tổ trưởng</span>
+        <span className="shrink-0 text-gray-500" aria-hidden>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (<div>
+      <label className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm">
+        Mô hình AI
+        <select className="input !w-full sm:!w-auto" value={modelId} onChange={(e) => setModelId(e.target.value)} disabled={busy}>
+          {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </label>
       <p className="mt-1 text-sm text-gray-600">
         AI biết hôm nay là ngày nào, buổi họp đã diễn ra hay chưa, rồi đọc kế hoạch, văn bản, lịch trong Nguồn tư liệu để soạn. Mỗi ý một dòng gạch đầu dòng, chưa có căn cứ thì không bịa. Kết quả nằm trong khung tím để thầy xem, sửa rồi mới nhận.
       </p>
@@ -56,7 +59,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
       <textarea className="input mt-3 min-h-24" disabled={busy} value={text} onChange={(e) => setText(e.target.value)}
         placeholder="Thầy dặn AI việc cần làm. Ví dụ: Viết phần đánh giá công tác chuyên môn 2 tuần vừa qua, nhấn mạnh việc kiểm tra giữa kì." />
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <select className="input !w-auto" value={scope} onChange={(e) => setScope(e.target.value as "empty" | "all")} disabled={busy}>
+        <select className="input !w-full sm:!w-auto" value={scope} onChange={(e) => setScope(e.target.value as "empty" | "all")} disabled={busy}>
           <option value="empty">Chỉ các mục còn trống</option>
           <option value="all">Cả các mục đã có nội dung (chỉ bổ sung)</option>
         </select>
@@ -76,6 +79,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
           )}
         </div>
       )}
+      </div>)}
     </section>
   );
 }

@@ -28,11 +28,11 @@ export default function ExportBar({ meetingId, locked }: { meetingId: string; lo
             className="mt-2 h-[78vh] w-full rounded-xl border border-[var(--line)] bg-white" />
         </>
       )}
-      <p className="mt-4 text-sm font-semibold text-gray-700">Xuất biên bản</p>
+      <p className="mt-4 text-sm font-semibold text-gray-700">Xuất và in biên bản</p>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <a className="btn btn-sm" href={`/api/export/${meetingId}?format=docx`}>Tải Word</a>
+        <a className="btn btn-sm" href={`/api/export/${meetingId}?format=docx`}>Xuất Word</a>
         <a className="btn btn-sm" href={`/api/export/${meetingId}?format=html`}>Tải HTML</a>
-        <a className="btn btn-sm" href={`/api/export/${meetingId}?format=pdf`} target="_blank">In / PDF</a>
+        <a className="btn btn-sm" href={`/api/export/${meetingId}?format=pdf`} target="_blank">Xuất PDF / In</a>
         <a className="btn btn-sm" href={`/api/export/${meetingId}?format=zip`}>Tải trọn gói (có minh chứng)</a>
         {!locked ? (
           <button className="btn btn-sm" disabled={pending}
