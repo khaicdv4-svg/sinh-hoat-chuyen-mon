@@ -21,7 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen lg:flex">
         <Nav profile={profile} />
-        <main className="mx-auto w-full min-w-0 max-w-[88rem] flex-1 px-4 py-5 lg:px-8 lg:py-6">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-[88rem] flex-1 px-4 pb-24 pt-5 lg:px-8 lg:pb-8 lg:pt-6">{children}</main>
       </body>
     </html>
   );
