@@ -5,6 +5,8 @@ import MeetingHeader from "@/components/MeetingHeader";
 import SectionCard from "@/components/SectionCard";
 import ExportBar from "@/components/ExportBar";
 import AiAssistant from "@/components/AiAssistant";
+import OpinionPanel from "@/components/OpinionPanel";
+import { isOpinionPart, isVotePart, PART_OPINION_LABEL } from "@/lib/markers";
 
 export type MeetingViewProps = {
   id: string; meeting: Meeting; sections: Section[]; entries: Entry[]; files: FileRow[]; urls: Record<string, string>;
@@ -72,13 +74,25 @@ export default function MeetingView({
                 secretary={secretary}
                 locked={locked}
                 meetingId={id}
+                hideOpinions={isOpinionPart(g.part) || isVotePart(g.part)}
               />
             ))}
+            {isOpinionPart(g.part) && (() => {
+              const ids = new Set(g.items.map(({ s }) => s.id));
+              const target = [...g.items].reverse().find(({ s }) => s.allow_opinions)?.s ?? g.items[g.items.length - 1]?.s;
+              return (
+                <OpinionPanel boxed title={`${PART_OPINION_LABEL} (mục ${g.part!.trim().split(".")[0]})`}
+                  targetSectionId={target?.id ?? null} canTarget={!!target?.allow_opinions}
+                  entries={entries.filter((e) => ids.has(e.section_id) && e.kind === "y_kien")}
+                  members={members} myMember={myMember} me={me} secretary={secretary} locked={locked}
+                  emptyNote={leader ? "Chưa có ý kiến của thành viên. Khi hoàn chỉnh biên bản sẽ ghi: “Các thành viên thống nhất, không có ý kiến bổ sung.”" : undefined} />
+              );
+            })()}
           </div>
         ))}
         {!sections.length && <p className="text-sm text-gray-500">Biên bản chưa có đề mục nào.</p>}
       </div>
-      {leader && <ExportBar meetingId={id} locked={locked} />}
+      {leader && <ExportBar meetingId={id} locked={locked} finalizedAt={meeting.finalized_at ?? null} models={models} defaultModelId={defaultModelId} />}
     </div>
   );
 }

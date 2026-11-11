@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { BUCKET, SCHOOL_NAME, SCHOOL_YEAR, TEAM_NAME } from "@/lib/constants";
 import { groupByPart, partLabel, roman } from "@/lib/format";
 import type { Attendance, Meeting, Member } from "@/lib/types";
+import { isOpinionPart, isVotePart, NO_OPINION_TEXT, PART_OPINION_LABEL, splitMarks, stripMarks } from "@/lib/markers";
 
 export interface ExFile { id: string; name: string; mime: string | null; size: number; uploader: string; path: string; url?: string; image?: Buffer }
 export interface ExEntry { speaker: string | null; body: string }
@@ -17,6 +18,8 @@ export interface ExDoc {
   members: Member[];
   attendance: Attendance[];
   sections: ExSection[];
+  /** Đã bấm "Hoàn chỉnh biên bản": không ghi chú đỏ, không chừa chỗ chấm trống. */
+  final: boolean;
 }
 
 const DOTS = ".".repeat(118);
@@ -71,6 +74,7 @@ export async function loadDoc(supabase: SupabaseClient, meetingId: string, opts:
     secretary: byId(m.secretary_member_id),
     members,
     attendance: (att ?? []) as Attendance[],
+    final: !!m.finalized_at,
     sections: (secs ?? []).map((s) => ({
       key: s.key, title: s.title, part: s.part, layout: s.layout ?? "block",
       fileLabel: s.file_label || "Minh chứng",
@@ -87,7 +91,7 @@ export async function loadDoc(supabase: SupabaseClient, meetingId: string, opts:
 }
 
 // ------------------------------------------------------------------ Mô hình chung cho Word và HTML
-type Run = { t: string; b?: boolean; i?: boolean; size?: number };
+type Run = { t: string; b?: boolean; i?: boolean; size?: number; red?: boolean };
 type Para = { runs: Run[]; align?: "center" | "justify"; indent?: boolean; keepNext?: boolean };
 type Block = Para | { table: "sign" } | { table: "members" } | { pageBreak: true } | { image: ExFile };
 
@@ -113,10 +117,13 @@ function buildBlocks(d: ExDoc): Block[] {
   const m = d.meeting;
   const out: Block[] = [];
   const p = (runs: Run[], o: Partial<Para> = {}) => out.push({ runs, align: "justify", indent: true, ...o });
+  const final = d.final;
+  const lineRuns = (l: string): Run[] => splitMarks(l).map((x) => (x.red ? { t: x.t, red: true, b: true } : { t: x.t }));
   const bodyLines = (text: string, prefix?: Run[]) => {
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    lines.forEach((l, i) => p(i === 0 && prefix ? [...prefix, { t: l }] : [{ t: l }]));
-    if (!lines.length && prefix) p(prefix);
+    const src = final ? stripMarks(text) : text;
+    const lines = src.split("\n").map((l) => l.trim()).filter(Boolean);
+    lines.forEach((l, i) => p(i === 0 && prefix ? [...prefix, ...lineRuns(l)] : lineRuns(l)));
+    if (!lines.length && prefix && !final) p(prefix);
   };
 
   out.push({ runs: [{ t: "BIÊN BẢN SINH HOẠT CHUYÊN MÔN", b: true, size: 15 }], align: "center" });
@@ -128,15 +135,22 @@ function buildBlocks(d: ExDoc): Block[] {
   out.push({ runs: [{ t: `Năm học ${SCHOOL_YEAR.replace("-", " - ")}`, b: true }], align: "center" });
 
   const [h, mi] = timeParts(m.meeting_time);
-  p([{ t: `Thời gian bắt đầu: Lúc ${h} giờ ${mi} phút, ${vnDate(m.meeting_date)}.` }]);
-  p([{ t: `Địa điểm: ${m.place || DOTS.slice(0, 60)}.` }]);
+  if (!final) {
+    p([{ t: `Thời gian bắt đầu: Lúc ${h} giờ ${mi} phút, ${vnDate(m.meeting_date)}.` }]);
+    p([{ t: `Địa điểm: ${m.place || DOTS.slice(0, 60)}.` }]);
+  } else {
+    const when = [m.meeting_time ? `Lúc ${h} giờ ${mi} phút` : "", m.meeting_date ? vnDate(m.meeting_date) : ""].filter(Boolean).join(", ");
+    if (when) p([{ t: `Thời gian bắt đầu: ${when}.` }]);
+    if (m.place) p([{ t: `Địa điểm: ${m.place}.` }]);
+  }
 
   // A. Thành phần
   const { active, absentIds, recorded } = present(d);
   p([{ t: "A. THÀNH PHẦN THAM DỰ", b: true }], { keepNext: true });
-  p([{ t: `1. Chủ trì: ${d.chair ? withTitle(d.chair) : DOTS.slice(0, 60)}` }]);
-  p([{ t: `2. Thư ký: ${d.secretary ? withTitle(d.secretary) : DOTS.slice(0, 60)}` }]);
-  p([{ t: "3. Thành phần khác:", b: true }], { keepNext: true });
+  let roleNo = 0;
+  if (d.chair || !final) p([{ t: `${++roleNo}. Chủ trì: ${d.chair ? withTitle(d.chair) : DOTS.slice(0, 60)}` }]);
+  if (d.secretary || !final) p([{ t: `${++roleNo}. Thư ký: ${d.secretary ? withTitle(d.secretary) : DOTS.slice(0, 60)}` }]);
+  p([{ t: `${++roleNo}. Thành phần khác:`, b: true }], { keepNext: true });
   for (const mem of active.filter((x) => x.id !== d.chair?.id && x.id !== d.secretary?.id)) {
     p([{ t: `- ${mem.honorific} ${withTitle(mem)}` }]);
   }
@@ -151,14 +165,15 @@ function buildBlocks(d: ExDoc): Block[] {
       });
       p([{ t: `Lý do vắng: ${reasons.join("; ")}.` }]);
     }
-  } else {
+  } else if (!final) {
     p([{ t: `Có mặt: ${SHORT_DOTS} /${total}. Vắng mặt: ${DOTS.slice(0, 65)}` }]);
     p([{ t: `Lý do vắng: ${DOTS.slice(0, 76)}` }]);
   }
 
   // B. Nội dung, C. Kết luận
-  const groups = groupByPart(d.sections);
-  const isC = (part: string | null) => !!part && /^C\./.test(part.trim());
+  const hasBody = (s: ExSection) => s.entries.some((e) => stripMarks(e.body)) || s.files.length > 0 || (!isOpinionPart(s.part) && s.opinions.length > 0);
+  const groups = groupByPart(final ? d.sections.filter(hasBody) : d.sections);
+  const isC = isVotePart;
   p([{ t: "B. NỘI DUNG CUỘC HỌP", b: true }], { keepNext: true });
   let looseNo = 0;
 
@@ -166,21 +181,21 @@ function buildBlocks(d: ExDoc): Block[] {
     if (s.layout === "inline") {
       const label: Run = { t: `${no ? `${no}. ` : ""}${s.title}: ` };
       const [first, ...rest] = s.entries;
-      if (!first) p([label, { t: DOTS.slice(0, 80) }]);
+      if (!first) { if (!final) p([label, { t: DOTS.slice(0, 80) }]); }
       else bodyLines(first.speaker ? `${first.speaker}: ${first.body}` : first.body, [label]);
       rest.forEach((e) => bodyLines(e.speaker ? `${e.speaker}: ${e.body}` : e.body));
     } else if (s.layout === "list") {
-      if (!s.entries.length) p([{ t: DOTS }]);
+      if (!s.entries.length && !final) p([{ t: DOTS }]);
       s.entries.forEach((e, i) => bodyLines(e.body, [{ t: `${i + 1}. ` }, ...(e.speaker ? [{ t: `${e.speaker}: ` }] : [])]));
     } else {
       if (s.title) p([{ t: `${no ? `${no}. ` : ""}${s.title}`, b: true }], { keepNext: true });
       if (m.ncbh_stage && (s.key === "ncbh_thong_tin" || /^nghiên cứu bài học/i.test(s.title))) {
         out.push({ runs: [{ t: "GIAI ĐOẠN ĐANG THỰC HIỆN: ", size: 13 }, { t: m.ncbh_stage.toUpperCase(), b: true, size: 13 }], align: "center", indent: true });
       }
-      if (!s.entries.length) p([{ t: DOTS }]);
+      if (!s.entries.length && !final) p([{ t: DOTS }]);
       s.entries.forEach((e) => bodyLines(e.body, e.speaker ? [{ t: `${e.speaker}: ` }] : undefined));
     }
-    if (s.opinions.length) {
+    if (s.opinions.length && !isOpinionPart(s.part)) {
       p([{ t: `${s.opinionLabel}:`, i: true }], { keepNext: true });
       s.opinions.forEach((e) => bodyLines(e.body, [{ t: "- " }, ...(e.speaker ? [{ t: `${e.speaker}: ` }] : [])]));
     }
@@ -191,6 +206,14 @@ function buildBlocks(d: ExDoc): Block[] {
     if (g.part) {
       p([{ t: partLabel(g.part, m.week_from, m.week_to), b: true }], { keepNext: true });
       g.items.forEach(({ s, no }) => renderSection(s, s.layout === "list" ? null : no));
+      // Ý kiến của các thành viên gom ở cuối mỗi mục lớn I–IV
+      if (isOpinionPart(g.part)) {
+        const ops = (final ? d.sections : g.items.map(({ s }) => s)).filter((s) => s.part === g.part).flatMap((s) => s.opinions);
+        p([{ t: `${PART_OPINION_LABEL}:`, b: true, i: true }], { keepNext: true });
+        if (ops.length) ops.forEach((e) => bodyLines(e.body, [{ t: "- " }, ...(e.speaker ? [{ t: `${e.speaker}: ` }] : [])]));
+        else if (final) p([{ t: NO_OPINION_TEXT }]);
+        else p([{ t: "[Cần bổ sung: chưa có ý kiến của thành viên]", red: true, b: true }]);
+      }
     } else {
       g.items.forEach(({ s }) => {
         looseNo++;
@@ -200,14 +223,19 @@ function buildBlocks(d: ExDoc): Block[] {
     }
   }
 
-  p([{ t: "C. BIỂU QUYẾT VÀ KẾT LUẬN", b: true }], { keepNext: true });
+  p([{ t: "V. BIỂU QUYẾT VÀ KẾT LUẬN", b: true }], { keepNext: true });
   for (const g of groups.filter((x) => isC(x.part))) g.items.forEach(({ s }) => renderSection(s, null));
-  const agree = m.vote_agree != null ? String(m.vote_agree) : SHORT_DOTS;
-  const totalVote = m.vote_total != null ? String(m.vote_total) : SHORT_DOTS;
-  const other = m.vote_agree != null ? m.vote_other || "không" : DOTS.slice(0, 40);
-  p([{ t: `Số thành viên nhất trí: ${agree}/${totalVote}; ý kiến khác: ${other}.` }]);
+  if (!final || m.vote_agree != null) {
+    const agree = m.vote_agree != null ? String(m.vote_agree) : SHORT_DOTS;
+    const totalVote = m.vote_total != null ? String(m.vote_total) : SHORT_DOTS;
+    const other = m.vote_agree != null ? m.vote_other || "không" : DOTS.slice(0, 40);
+    p([{ t: `Số thành viên nhất trí: ${agree}/${totalVote}; ý kiến khác: ${other}.` }]);
+  } else {
+    p([{ t: "Các thành viên dự họp biểu quyết thông qua các nội dung trên." }]);
+  }
   const [eh, em] = timeParts(m.end_time);
-  p([{ t: `Cuộc họp kết thúc lúc ${eh} giờ ${em} phút cùng ngày. Thư ký trình bày lại nội dung để các thành viên dự họp xác nhận và ký tên.` }]);
+  const endAt = !final || m.end_time ? ` lúc ${eh} giờ ${em} phút` : "";
+  p([{ t: `Cuộc họp kết thúc${endAt} cùng ngày. Thư ký trình bày lại nội dung để các thành viên dự họp xác nhận và ký tên.` }]);
 
   out.push({ table: "sign" });
   out.push({ runs: [{ t: "CÁC THÀNH VIÊN DỰ HỌP", b: true }], align: "center" });
@@ -253,6 +281,7 @@ export function toHtml(d: ExDoc, opts: { autoPrint?: boolean } = {}): string {
       let t = esc(r.t);
       if (r.b) t = `<b>${t}</b>`;
       if (r.i) t = `<i>${t}</i>`;
+      if (r.red) t = `<span style="color:#c00000">${t}</span>`;
       if (r.size && r.size !== 14) t = `<span style="font-size:${r.size}pt">${t}</span>`;
       return t;
     }).join("");
@@ -286,7 +315,7 @@ const line = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const allLines = { top: line, bottom: line, left: line, right: line };
 const spacing = { after: 100, line: 264, lineRule: LineRuleType.AUTO };
 
-const tr = (r: Run) => new TextRun({ text: r.t, font: FONT, size: (r.size ?? 14) * 2, bold: r.b, italics: r.i });
+const tr = (r: Run) => new TextRun({ text: r.t, font: FONT, size: (r.size ?? 14) * 2, bold: r.b, italics: r.i, color: r.red ? "C00000" : undefined });
 const para = (runs: Run[], align: "center" | "justify" | "left" = "justify", indent = false, keepNext = false) =>
   new Paragraph({
     alignment: align === "center" ? AlignmentType.CENTER : align === "left" ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,

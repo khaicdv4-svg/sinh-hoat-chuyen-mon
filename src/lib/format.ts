@@ -86,7 +86,9 @@ export function partLabel(part: string | null | undefined, weekFrom: number | nu
   const tuan = weekFrom != null && weekTo != null ? `TUẦN ${weekFrom} + ${weekTo}` : "";
   const truoc =
     weekFrom != null && weekFrom > 2 ? `TUẦN ${weekFrom - 2} + ${weekFrom - 1}` : weekFrom != null ? "ĐẦU NĂM HỌC" : "";
-  return part.replace("{tuan}", tuan).replace("{truoc}", truoc).replace(/\s+$/, "");
+  return part
+    .replace(/^\s*C\.\s*BIỂU QUYẾT/i, "V. BIỂU QUYẾT") // mục C cũ nay là mục V
+    .replace("{tuan}", tuan).replace("{truoc}", truoc).replace(/\s+$/, "");
 }
 
 export const memberName = (m: { honorific: string; full_name: string } | null | undefined) =>
