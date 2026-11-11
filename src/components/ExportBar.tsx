@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { deleteMeeting, lockMeeting, unlockMeeting } from "@/app/actions";
 import { fmtDateTime } from "@/lib/format";
 
-export default function ExportBar({ meetingId, locked, finalizedAt, models, defaultModelId }: {
-  meetingId: string; locked: boolean; finalizedAt: string | null; models: { id: string; label: string }[] | null; defaultModelId: string;
+export default function ExportBar({ meetingId, locked, finalizedAt, models, defaultModelId, missingOpinions = [] }: {
+  meetingId: string; locked: boolean; finalizedAt: string | null; missingOpinions?: { part: string; n: number }[]; models: { id: string; label: string }[] | null; defaultModelId: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -49,6 +49,11 @@ export default function ExportBar({ meetingId, locked, finalizedAt, models, defa
           </>
         )}
       </div>
+      {!locked && missingOpinions.length > 0 && (
+        <p className="mt-2 text-sm text-amber-900">
+          Còn thành viên chưa gửi ý kiến: {missingOpinions.map((x) => `mục ${x.part} (${x.n} người)`).join(", ")}. Thầy kéo lên khung ý kiến cuối mỗi mục, bấm “🤖 AI viết ý kiến thay thành viên chưa gửi” trước khi hoàn chỉnh và xuất.
+        </p>
+      )}
       {finalizedAt && (
         <p className="mt-2 text-sm text-green-800">
           Đã hoàn chỉnh lúc {fmtDateTime(finalizedAt)}. Bản xuất không còn ghi chú đỏ và chỗ chấm trống.
