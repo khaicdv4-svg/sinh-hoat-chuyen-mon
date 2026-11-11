@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 type Model = { id: string; label: string };
 
 const QUICK = [
-  { t: "Viết cả biên bản", q: "Viết đầy đủ các mục còn trống của biên bản này, theo kế hoạch và văn bản của tổ trong thời điểm hiện tại." },
+  { t: "Viết cả biên bản", q: "Viết đầy đủ cả 5 mục lớn của biên bản này (I đến V), theo kế hoạch và văn bản của tổ trong thời điểm hiện tại. Chỗ nào thiếu thông tin thì ghi chú cần bổ sung." },
   { t: "Phần chương trình, nhiệm vụ", q: "Chỉ soạn phần chương trình và nhiệm vụ của buổi sinh hoạt này, lấy từ kế hoạch năm và lịch tuần." },
   { t: "Triển khai văn bản mới", q: "Soạn phần triển khai các văn bản mới đang có trong nguồn tư liệu, nêu việc tổ cần làm." },
   { t: "Dự thảo kết luận", q: "Soạn dự thảo phần kết luận dựa trên những nội dung đã ghi trong biên bản." },
@@ -19,7 +19,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [done, setDone] = useState<{ sections: number; lines: number; missing: string[] } | null>(null);
+  const [done, setDone] = useState<{ sections: number; lines: number; marks: number; missing: string[] } | null>(null);
 
   async function run() {
     setBusy(true); setErr(""); setDone(null);
@@ -30,7 +30,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "AI chưa viết được.");
-      setDone({ sections: j.sections, lines: j.lines, missing: j.missing ?? [] });
+      setDone({ sections: j.sections, lines: j.lines, marks: j.marks ?? 0, missing: j.missing ?? [] });
       router.refresh();
     } catch (e) { setErr((e as Error).message); }
     setBusy(false);
@@ -51,7 +51,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
         </select>
       </label>
       <p className="mt-1 text-sm text-gray-600">
-        AI biết hôm nay là ngày nào, buổi họp đã diễn ra hay chưa, rồi đọc kế hoạch, văn bản, lịch trong Nguồn tư liệu để soạn. Mỗi ý một dòng gạch đầu dòng, chưa có căn cứ thì không bịa. Kết quả nằm trong khung tím để thầy xem, sửa rồi mới nhận.
+        AI biết hôm nay là ngày nào, buổi họp đã diễn ra hay chưa, rồi đọc kế hoạch, văn bản, lịch trong Nguồn tư liệu để soạn. AI viết đủ 5 mục lớn (I đến V), mỗi ý một dòng gạch đầu dòng, không bịa. Chỗ nào thiếu thông tin, AI ghi chú <b className="text-red-600">[Cần bổ sung: …]</b> tô đỏ để thầy xem lại. Kết quả nằm trong khung tím để thầy xem, sửa rồi mới nhận.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {QUICK.map((c) => <button key={c.t} type="button" className="btn btn-sm" disabled={busy} onClick={() => setText(c.q)}>{c.t}</button>)}
@@ -71,6 +71,7 @@ export default function AiAssistant({ meetingId, models, defaultModelId }: { mee
       {done && (
         <div className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
           <p>AI đã soạn {done.lines} dòng vào {done.sections} mục. Thầy xem các khung tím bên dưới, sửa nếu cần rồi bấm "Nhận tất cả".</p>
+          {done.marks > 0 && <p className="mt-1 font-semibold text-red-600">Có {done.marks} chỗ còn thiếu thông tin (chữ đỏ). Thầy bổ sung, hoặc bấm “Hoàn chỉnh biên bản” ở cuối trang để AI rà soát và làm gọn.</p>}
           {done.missing.length > 0 && (
             <div className="mt-2 text-amber-900">
               <p className="font-semibold">Còn thiếu thông tin, thầy bổ sung giúp:</p>

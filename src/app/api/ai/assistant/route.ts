@@ -19,6 +19,8 @@ function nowVN() {
 }
 
 const cleanLine = (s: string) => s.replace(/^[\s\-–—•*·]+/, "").replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+/** Đưa mọi kiểu ghi chú thiếu thông tin về đúng dạng [Cần bổ sung: …] để giao diện tô đỏ. */
+const normMark = (s: string) => s.replace(/[[(]\s*(?:cần bổ sung|thiếu thông tin|chưa có thông tin)\s*[:：-]?\s*([^\])]*)[\])]/gi, "[Cần bổ sung: $1]").replace(/[.…]{4,}/g, "[Cần bổ sung: điền thông tin]");
 
 /**
  * Trợ lý AI của tổ trưởng: hiểu thời điểm hiện tại, đọc các nguồn tư liệu của tổ,
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
 
     const sectionList = targets
       .map((s) => {
-        const who = s.entry_editors === "all" && s.allow_opinions ? "ý kiến của từng thành viên" : s.entry_editors === "leader" ? "tổ trưởng ghi" : "nội dung chung";
+        const who = s.entry_editors === "leader" ? "tổ trưởng ghi" : "nội dung chung của tổ";
         return `- key "${s.key}": ${partLabel(s.part, meeting.week_from, meeting.week_to) || "(không thuộc phần nào)"} › ${s.title}${s.hint ? ` — mục đích: ${s.hint}` : ""} [${who}${filled.has(s.id) ? "; đã có nội dung, chỉ bổ sung điều còn thiếu" : "; đang trống"}]`;
       })
       .join("\n");
@@ -101,8 +103,10 @@ Bạn là trợ lý viết biên bản cho tổ trưởng. Tổ trưởng yêu c
 
 Cách làm việc:
 - Tự xác định thời điểm từ [Thời điểm hiện tại]. Buổi họp đã diễn ra thì ghi như việc đã làm. Buổi họp chưa diễn ra thì chỉ soạn phần chuẩn bị: chương trình, nhiệm vụ, văn bản cần triển khai, dự kiến. Tuyệt đối không viết như thể buổi họp đã xảy ra.
-- Lấy thông tin từ [Bối cảnh buổi họp] và [Nguồn tư liệu của tổ] (kế hoạch, văn bản, lịch, Drive). [Biểu mẫu của tổ] chỉ để học cách trình bày và giọng văn. Chỉ dùng điều có trong đó. Thiếu thì không viết, đưa vào "thieu" để tổ trưởng bổ sung.
-- Mục ghi ý kiến của từng thành viên: không bịa lời của ai. Chỉ viết khi ý kiến đã có sẵn trong dữ liệu. Nếu không có thì bỏ qua mục đó và nêu vào "thieu".
+- Biên bản có đủ 5 mục lớn: I. Đánh giá việc thực hiện nhiệm vụ, II. Sinh hoạt chuyên môn, III. Sinh hoạt văn bản, chuyên đề, tài liệu, IV. Phân công và theo dõi sau sinh hoạt, V. Biểu quyết và kết luận. Bạn PHẢI trả về nội dung cho TẤT CẢ các mục trong [Các mục có thể viết], không bỏ mục nào.
+- Lấy thông tin từ [Bối cảnh buổi họp] và [Nguồn tư liệu của tổ] (kế hoạch, văn bản, lịch, Drive). [Biểu mẫu của tổ] chỉ để học cách trình bày và giọng văn. Chỉ dùng điều có trong đó, không bịa.
+- Chỗ nào thiếu thông tin (số liệu, tên người, ngày, tên văn bản, kết quả…) thì vẫn viết câu, đặt ghi chú đúng dạng [Cần bổ sung: điều cần thêm] ngay chỗ thiếu. Ví dụ: "Lớp 4/3 có [Cần bổ sung: số học sinh] học sinh cần hỗ trợ môn Toán." Mục hoàn toàn không có căn cứ thì viết một dòng: [Cần bổ sung: nội dung tổ trưởng cần ghi cho mục này]. Không dùng chuỗi dấu chấm "......" để chừa trống. Ứng dụng sẽ tô đỏ các ghi chú này để tổ trưởng xem lại.
+- Ý kiến đóng góp của các thành viên được ghi riêng ở cuối mỗi mục lớn, không thuộc phần bạn viết. Không bịa lời của ai, không viết "Thầy/Cô … cho rằng …" khi dữ liệu không có.
 - Không lặp lại điều đã ghi ở mục khác. Mục đã có nội dung thì chỉ bổ sung điều còn thiếu, không viết lại.
 
 Cách viết:
@@ -110,7 +114,7 @@ Cách viết:
 - Câu ngắn, rõ chủ ngữ, giọng một giáo viên viết biên bản cho đồng nghiệp đọc. Đủ ý, không rườm.
 - Không văn máy: không mở bài chào hỏi, không câu tổng kết sáo, không "đóng vai trò quan trọng", "không chỉ… mà còn", không liệt kê ba ý cho đẹp, không từ hoa mĩ, không in đậm, không biểu tượng.
 - Tên người viết đúng như trong danh sách tổ. Ngày tháng, số liệu chép đúng nguồn.
-- Mỗi mục thường 2 đến 6 dòng. Chỉ viết mục có căn cứ; mục không có gì để viết thì không đưa vào kết quả.`),
+- Mỗi mục thường 2 đến 6 dòng. Mục V viết phần kết luận: những việc tổ thống nhất, ai làm, hạn hoàn thành.`),
       [{
         type: "text",
         text: `[Thời điểm hiện tại]\n${timeBlock}\n\n[Bối cảnh buổi họp]\n${ctx}\n\n[Nguồn tư liệu của tổ]\n${sources || "(chưa có nguồn nào được bật)"}\n\n[Biểu mẫu của tổ]\n${forms || "(chưa có biểu mẫu nào được bật)"}\n\n[Các mục có thể viết]\n${sectionList}\n\n[Yêu cầu của tổ trưởng]\n${request}`,
@@ -127,7 +131,7 @@ Cách viết:
                 type: "object",
                 properties: {
                   key: { type: "string", description: "key của mục, đúng như trong danh sách" },
-                  dong: { type: "array", items: { type: "string" }, description: "Các dòng nội dung, không kèm gạch đầu dòng" },
+                  dong: { type: "array", items: { type: "string" }, description: "Các dòng nội dung, không kèm gạch đầu dòng. Chỗ thiếu ghi [Cần bổ sung: …]" },
                 },
                 required: ["key", "dong"],
               },
@@ -141,12 +145,22 @@ Cách viết:
     );
 
     const byKey = new Map(targets.map((s) => [s.key, s]));
+    // Mục nào AI bỏ sót vẫn có một dòng ghi chú đỏ, để biên bản luôn đủ 5 mục lớn
+    const got = new Map<string, string[]>();
+    for (const m of out.muc ?? []) {
+      if (!byKey.has(m.key)) continue;
+      const items = (m.dong ?? []).map((x) => normMark(cleanLine(x))).filter((x) => x && !/^[.…\s]+$/.test(x));
+      if (items.length) got.set(m.key, [...(got.get(m.key) ?? []), ...items]);
+    }
+    if (scope !== "all") {
+      for (const s of targets) if (!got.has(s.key)) got.set(s.key, [`[Cần bổ sung: nội dung mục “${s.title}”]`]);
+    }
     let sectionsDone = 0;
     let lines = 0;
-    for (const m of out.muc ?? []) {
-      const s = byKey.get(m.key);
-      const items = (m.dong ?? []).map(cleanLine).filter((x) => x && !/^[.…\s]+$/.test(x));
-      if (!s || !items.length) continue;
+    let marks = 0;
+    for (const [key, items] of got) {
+      const s = byKey.get(key)!;
+      marks += items.filter((x) => /\[Cần bổ sung/i.test(x)).length;
       const body = (s.layout === "inline" ? items.join(" ") : items.map((x) => `- ${x}`).join("\n")).slice(0, 8000);
       await sb.from("shcm_entries").delete().eq("section_id", s.id).eq("status", "proposed").eq("source", "ai_summary").eq("author_id", g.profile.id);
       const { error } = await sb.from("shcm_entries").insert({
@@ -156,7 +170,7 @@ Cách viết:
     }
     if (!sectionsDone) throw new AiError("AI chưa tìm được nội dung có căn cứ để viết. Thầy bổ sung nguồn ở mục Nguồn tư liệu hoặc nêu rõ hơn yêu cầu.", 422);
 
-    return Response.json({ ok: true, sections: sectionsDone, lines, missing: (out.thieu ?? []).map(cleanLine).filter(Boolean).slice(0, 12) });
+    return Response.json({ ok: true, sections: sectionsDone, lines, marks, missing: (out.thieu ?? []).map(cleanLine).filter(Boolean).slice(0, 12) });
   } catch (e) {
     return errorResponse(e);
   }

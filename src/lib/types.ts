@@ -39,6 +39,7 @@ export interface Meeting {
   online_platform: string | null;
   online_link: string | null;
   format_notified_at: string | null;
+  finalized_at?: string | null;
 }
 
 export interface Member {
@@ -85,7 +86,7 @@ export interface Entry {
   section_id: string;
   author_id: string | null;
   body: string;
-  source: "manual" | "ai_assisted" | "ke_hoach" | "van_ban_moi" | "ai_summary" | "nhap_file";
+  source: "manual" | "ai_assisted" | "ke_hoach" | "van_ban_moi" | "ai_summary" | "nhap_file" | "hoan_chinh";
   speaker_id: string | null;
   source_file_id: string | null;
   status: "proposed" | "accepted" | "pending" | "merged" | "dismissed";
