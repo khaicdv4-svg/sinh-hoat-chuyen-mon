@@ -32,6 +32,15 @@ export default function MeetingView({
       return { id: `phan-${gi}`, label, short: m ? `${m[1]}. ${m[2].split(/\s+/).slice(0, 3).join(" ").toLowerCase().replace(/^./, (c) => c.toUpperCase())}…` : label };
     });
 
+  // Mục lớn I–IV còn thành viên có mặt chưa gửi ý kiến (nhắc tổ trưởng trước khi xuất)
+  const absentIds = new Set(attendance.filter((x) => !x.present).map((x) => x.member_id));
+  const missingByPart = groups.filter((g) => isOpinionPart(g.part)).map((g) => {
+    const ids = new Set(g.items.map(({ s }) => s.id));
+    const spoke = new Set(entries.filter((e) => ids.has(e.section_id) && e.kind === "y_kien" && ["accepted", "pending", "merged"].includes(e.status)).map((e) => e.speaker_id));
+    const n = members.filter((mb) => mb.active && !absentIds.has(mb.id) && mb.id !== meeting.chair_member_id && !spoke.has(mb.id)).length;
+    return { part: g.part!.trim().split(".")[0], n };
+  }).filter((x) => x.n > 0);
+
   return (
     <div>
       <Link href="/" className="text-sm text-gray-500 hover:underline">
@@ -85,6 +94,12 @@ export default function MeetingView({
                   targetSectionId={target?.id ?? null} canTarget={!!target?.allow_opinions}
                   entries={entries.filter((e) => ids.has(e.section_id) && e.kind === "y_kien")}
                   members={members} myMember={myMember} me={me} secretary={secretary} locked={locked}
+                  fill={leader && !locked && models ? (() => {
+                    const absent = new Set(attendance.filter((x) => !x.present).map((x) => x.member_id));
+                    const spoke = new Set(entries.filter((e) => ids.has(e.section_id) && e.kind === "y_kien" && ["accepted", "pending", "merged"].includes(e.status)).map((e) => e.speaker_id));
+                    const missing = members.filter((mb) => mb.active && !absent.has(mb.id) && !spoke.has(mb.id));
+                    return { meetingId: id, part: g.part!, modelId: defaultModelId, missing, skip: meeting.chair_member_id ? [meeting.chair_member_id] : [] };
+                  })() : null}
                   emptyNote={leader ? "Chưa có ý kiến của thành viên. Khi hoàn chỉnh biên bản sẽ ghi: “Các thành viên thống nhất, không có ý kiến bổ sung.”" : undefined} />
               );
             })()}
@@ -92,7 +107,7 @@ export default function MeetingView({
         ))}
         {!sections.length && <p className="text-sm text-gray-500">Biên bản chưa có đề mục nào.</p>}
       </div>
-      {leader && <ExportBar meetingId={id} locked={locked} finalizedAt={meeting.finalized_at ?? null} models={models} defaultModelId={defaultModelId} />}
+      {leader && <ExportBar meetingId={id} locked={locked} finalizedAt={meeting.finalized_at ?? null} missingOpinions={missingByPart} models={models} defaultModelId={defaultModelId} />}
     </div>
   );
 }

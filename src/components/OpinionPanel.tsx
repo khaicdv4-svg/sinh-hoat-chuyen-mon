@@ -16,11 +16,14 @@ function who(p?: { full_name: string | null; email?: string } | null) {
  * hoặc trong một mục lẻ không thuộc phần nào.
  * Ý kiến mới được lưu vào mục đích (targetSectionId).
  */
+/** Thông tin để tổ trưởng nhờ AI viết ý kiến thay thành viên chưa gửi (cuối mục lớn I–IV). */
+export type FillInfo = { meetingId: string; part: string; modelId: string; missing: Member[]; skip: string[] };
+
 export default function OpinionPanel({
-  title, targetSectionId, canTarget, entries, members, myMember, me, secretary, locked, boxed = false, emptyNote,
+  title, targetSectionId, canTarget, entries, members, myMember, me, secretary, locked, boxed = false, emptyNote, fill,
 }: {
   title: string; targetSectionId: string | null; canTarget: boolean; entries: EntryX[]; members: Member[]; myMember: Member | null;
-  me: Profile; secretary: boolean; locked: boolean; boxed?: boolean; emptyNote?: string;
+  me: Profile; secretary: boolean; locked: boolean; boxed?: boolean; emptyNote?: string; fill?: FillInfo | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -31,6 +34,11 @@ export default function OpinionPanel({
   const [oSpeaker, setOSpeaker] = useState(myMember?.id ?? "");
   const [oAi, setOAi] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [fillOpen, setFillOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [fillNote, setFillNote] = useState("");
+  const [fillBusy, setFillBusy] = useState(false);
+  const [fillMsg, setFillMsg] = useState("");
 
   const leader = me.role === "to_truong";
   const recorder = leader || secretary;
@@ -63,12 +71,85 @@ export default function OpinionPanel({
     setAiBusy(false);
   }
 
-  if (!(opAccepted.length || opPending.length || opDismissed.length || canOpinion)) return null;
+  const aiPending = opPending.filter((e) => e.source === "ai_summary");
+
+  function openFill() {
+    if (!fill) return;
+    setPicked(fill.missing.filter((m) => !fill.skip.includes(m.id)).map((m) => m.id));
+    setFillMsg(""); setFillOpen(!fillOpen);
+  }
+
+  async function runFill() {
+    if (!fill || !picked.length) return;
+    setFillBusy(true); setFillMsg(""); setMsg("");
+    try {
+      const res = await fetch("/api/ai/opinions-fill", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId: fill.meetingId, part: fill.part, memberIds: picked, modelId: fill.modelId, note: fillNote }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "AI chưa viết được.");
+      setFillOpen(false); setFillNote("");
+      setFillMsg(`AI đã viết ${j.added} ý kiến (khung vàng). Thầy đọc, sửa nếu cần rồi bấm “Ghi nhận ý kiến”.`);
+      router.refresh();
+    } catch (e) { setMsg((e as Error).message); }
+    setFillBusy(false);
+  }
+
+  const showFill = !!fill && leader && !locked;
+  if (!(opAccepted.length || opPending.length || opDismissed.length || canOpinion || showFill)) return null;
 
   return (
     <div className={boxed ? "card border-l-4 !border-l-amber-400 p-4" : "mt-4 border-t border-dashed border-[var(--line)] pt-3"}>
       <p className={boxed ? "font-semibold" : "text-sm font-semibold text-gray-700"}>{title}</p>
       {boxed && !opAccepted.length && !opPending.length && emptyNote && <p className="mt-1 text-sm text-red-600">{emptyNote}</p>}
+      {showFill && (
+        <div className="mt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-sm" disabled={fillBusy} onClick={openFill}>
+              🤖 AI viết ý kiến thay thành viên chưa gửi{fill!.missing.length ? ` (${fill!.missing.length})` : ""}
+            </button>
+            {aiPending.length > 1 && (
+              <button type="button" className="btn btn-sm" disabled={pending}
+                onClick={() => run(async () => {
+                  for (const e of aiPending) { const r = await decideOpinion(e.id, "accepted"); if (!r.ok) return r; }
+                  return { ok: true };
+                })}>
+                Ghi nhận cả {aiPending.length} ý kiến AI viết
+              </button>
+            )}
+          </div>
+          {fillOpen && (
+            <div className="well mt-2 grid gap-2 p-3 text-sm">
+              {fill!.missing.length === 0 ? (
+                <p className="text-gray-600">Mọi thành viên có mặt đều đã có ý kiến ở mục này.</p>
+              ) : (
+                <>
+                  <p className="text-gray-600">Chọn người cần viết thay (người vắng họp không có trong danh sách). AI viết theo đúng bước nghiên cứu bài học, kế hoạch bài dạy và kỹ năng viết biên bản đã lưu ở Cài đặt AI.</p>
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {fill!.missing.map((m) => (
+                      <label key={m.id} className="flex items-center gap-2">
+                        <input type="checkbox" checked={picked.includes(m.id)}
+                          onChange={(e) => setPicked(e.target.checked ? [...picked, m.id] : picked.filter((x) => x !== m.id))} />
+                        {memberName(m)}{m.title ? <span className="text-xs text-gray-500"> · {m.title}</span> : null}
+                      </label>
+                    ))}
+                  </div>
+                  <textarea className="input" rows={2} value={fillNote} onChange={(e) => setFillNote(e.target.value)}
+                    placeholder="Dặn thêm AI (không bắt buộc). Ví dụ: Cô Thu nêu học sinh lớp 4/5 còn lúng túng khi làm thí nghiệm." />
+                  <div className="flex gap-2">
+                    <button type="button" className="btn btn-primary btn-sm" disabled={fillBusy || !picked.length} onClick={runFill}>
+                      {fillBusy ? "AI đang viết…" : `Viết ${picked.length} ý kiến`}
+                    </button>
+                    <button type="button" className="btn btn-sm" onClick={() => setFillOpen(false)}>Hủy</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {fillMsg && <p className="mt-1 text-sm text-green-700">{fillMsg}</p>}
+        </div>
+      )}
       <div className="mt-2 grid gap-2">
         {opAccepted.map((e) => {
           const sp = memberById(e.speaker_id);
@@ -122,6 +203,7 @@ export default function OpinionPanel({
                   <>
                     <p className="whitespace-pre-wrap">{sp ? <b>{memberName(sp)}: </b> : <b>{who(e.author)}: </b>}{e.body}</p>
                     <p className="mt-1 text-xs text-amber-800">
+                      {e.source === "ai_summary" ? <span className="badge badge-ai mr-2">AI viết thay, tổ trưởng đọc lại</span> : null}
                       Chờ tổ trưởng xem · {fmtDateTime(e.created_at)}
                       {e.source === "ai_assisted" && <span className="badge badge-ai ml-2">có AI hỗ trợ soạn</span>}
                       {!locked && (leader || mine) && (
